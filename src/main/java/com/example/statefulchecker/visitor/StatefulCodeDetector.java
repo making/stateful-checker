@@ -1,0 +1,368 @@
+package com.example.statefulchecker.visitor;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.tree.J;
+
+/**
+ * Detector that finds and reports stateful code patterns in Spring and EJB beans.
+ */
+public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
+
+	private static final Set<String> BEAN_ANNOTATIONS = Set.of("Component", "Service", "Repository", "Controller",
+			"RestController", "Configuration", "Bean", "Stateless", "Singleton");
+
+	private static final Set<String> INJECTION_ANNOTATIONS = Set.of("Autowired", "Inject", "Resource", "Value",
+			"Qualifier", "EJB", "PersistenceContext", "PersistenceUnit");
+
+	private boolean isInBeanClass = false;
+
+	private String currentClassName = "";
+
+	private final Set<String> finalFields = new HashSet<>();
+
+	private final Set<String> injectedFields = new HashSet<>();
+
+	private final Set<String> staticFinalFields = new HashSet<>();
+
+	private final Set<String> declaredFields = new HashSet<>();
+
+	private final Map<String, List<Issue>> statefulIssues = new HashMap<>();
+
+	private boolean inConstructor = false;
+
+	private boolean inPostConstruct = false;
+
+	private boolean inStaticInitializer = false;
+
+	private String currentMethodName = "";
+
+	public boolean hasStatefulIssues() {
+		return !statefulIssues.isEmpty();
+	}
+
+	public void reportIssues() {
+		for (Map.Entry<String, List<Issue>> entry : statefulIssues.entrySet()) {
+			String fieldName = entry.getKey();
+			List<Issue> issues = entry.getValue();
+
+			System.out.println("  Field: " + fieldName);
+			for (Issue issue : issues) {
+				System.out.println("    - " + issue.description + " in " + issue.location);
+			}
+		}
+	}
+
+	@Override
+	public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+		// Check if class has bean annotations
+		boolean wasInBeanClass = isInBeanClass;
+		String previousClassName = currentClassName;
+
+		isInBeanClass = hasAnyBeanAnnotation(classDecl);
+		currentClassName = classDecl.getSimpleName();
+
+		// Reset field tracking for this class
+		finalFields.clear();
+		injectedFields.clear();
+		staticFinalFields.clear();
+		declaredFields.clear();
+		statefulIssues.clear();
+
+		J.ClassDeclaration result = super.visitClassDeclaration(classDecl, ctx);
+
+		isInBeanClass = wasInBeanClass;
+		currentClassName = previousClassName;
+		return result;
+	}
+
+	@Override
+	public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable,
+			ExecutionContext ctx) {
+		if (!isInBeanClass) {
+			return super.visitVariableDeclarations(multiVariable, ctx);
+		}
+
+		// Check if this is a field declaration (not in a method)
+		if (getCursor().getParentTreeCursor().getValue() instanceof J.Block
+				&& getCursor().getParentTreeCursor().getParentTreeCursor().getValue() instanceof J.ClassDeclaration) {
+
+			for (J.VariableDeclarations.NamedVariable variable : multiVariable.getVariables()) {
+				String fieldName = variable.getSimpleName();
+				declaredFields.add(fieldName);
+
+				// Check modifiers
+				boolean isFinal = multiVariable.hasModifier(J.Modifier.Type.Final);
+				boolean isStatic = multiVariable.hasModifier(J.Modifier.Type.Static);
+
+				if (isFinal) {
+					finalFields.add(fieldName);
+					if (isStatic) {
+						staticFinalFields.add(fieldName);
+					}
+				}
+
+				// Check for injection annotations
+				if (hasAnyInjectionAnnotation(multiVariable)) {
+					injectedFields.add(fieldName);
+				}
+			}
+		}
+
+		return super.visitVariableDeclarations(multiVariable, ctx);
+	}
+
+	@Override
+	public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
+		if (!isInBeanClass) {
+			return super.visitMethodDeclaration(method, ctx);
+		}
+
+		// Track current method
+		String previousMethodName = currentMethodName;
+		currentMethodName = method.getSimpleName();
+
+		// Check if this is a constructor
+		boolean wasInConstructor = inConstructor;
+		boolean wasInPostConstruct = inPostConstruct;
+
+		inConstructor = method.isConstructor();
+		inPostConstruct = hasAnnotation(method, "PostConstruct");
+
+		J.MethodDeclaration result = super.visitMethodDeclaration(method, ctx);
+
+		inConstructor = wasInConstructor;
+		inPostConstruct = wasInPostConstruct;
+		currentMethodName = previousMethodName;
+
+		return result;
+	}
+
+	@Override
+	public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
+		if (!isInBeanClass) {
+			return super.visitAssignment(assignment, ctx);
+		}
+
+		// Check if this is an instance field assignment
+		if (assignment.getVariable() instanceof J.FieldAccess) {
+			J.FieldAccess fieldAccess = (J.FieldAccess) assignment.getVariable();
+			if (fieldAccess.getTarget() instanceof J.Identifier
+					&& ((J.Identifier) fieldAccess.getTarget()).getSimpleName().equals("this")) {
+				handleFieldAssignment(fieldAccess.getSimpleName());
+			}
+		}
+		else if (assignment.getVariable() instanceof J.Identifier) {
+			// Direct field access without 'this'
+			J.Identifier identifier = (J.Identifier) assignment.getVariable();
+			if (isInstanceField(identifier.getSimpleName())) {
+				handleFieldAssignment(identifier.getSimpleName());
+			}
+		}
+
+		return super.visitAssignment(assignment, ctx);
+	}
+
+	@Override
+	public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+		if (!isInBeanClass) {
+			return super.visitMethodInvocation(method, ctx);
+		}
+
+		// Check for collection modifications
+		if (method.getSelect() != null) {
+			String methodName = method.getSimpleName();
+			if (isCollectionModificationMethod(methodName)) {
+				String fieldName = getFieldNameFromExpression(method.getSelect());
+				if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
+						&& !inPostConstruct && !inStaticInitializer) {
+					recordIssue(fieldName, "Collection modification '" + methodName + "'",
+							"method " + currentMethodName);
+				}
+			}
+		}
+
+		return super.visitMethodInvocation(method, ctx);
+	}
+
+	@Override
+	public J.Unary visitUnary(J.Unary unary, ExecutionContext ctx) {
+		if (!isInBeanClass) {
+			return super.visitUnary(unary, ctx);
+		}
+
+		// Check for increment/decrement operations on fields
+		if (unary.getOperator() == J.Unary.Type.PostIncrement || unary.getOperator() == J.Unary.Type.PreIncrement
+				|| unary.getOperator() == J.Unary.Type.PostDecrement
+				|| unary.getOperator() == J.Unary.Type.PreDecrement) {
+			String fieldName = getFieldNameFromExpression(unary.getExpression());
+			if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName)) {
+				String operationType = (unary.getOperator() == J.Unary.Type.PostIncrement
+						|| unary.getOperator() == J.Unary.Type.PreIncrement) ? "Increment operation"
+								: "Decrement operation";
+				recordIssue(fieldName, operationType, "method " + currentMethodName);
+			}
+		}
+
+		return super.visitUnary(unary, ctx);
+	}
+
+	@Override
+	public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+		// Check if this is a static initializer block
+		boolean wasInStaticInitializer = inStaticInitializer;
+		if (block.isStatic()) {
+			inStaticInitializer = true;
+		}
+
+		J.Block result = super.visitBlock(block, ctx);
+
+		inStaticInitializer = wasInStaticInitializer;
+		return result;
+	}
+
+	private void handleFieldAssignment(String fieldName) {
+		// Skip if field is final, injected, or we're in an allowed context
+		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inStaticInitializer) {
+			recordIssue(fieldName, "Field assignment", "method " + currentMethodName);
+		}
+	}
+
+	private boolean isAllowedField(String fieldName) {
+		return finalFields.contains(fieldName) || staticFinalFields.contains(fieldName)
+				|| injectedFields.contains(fieldName);
+	}
+
+	private boolean isInstanceField(String name) {
+		return declaredFields.contains(name);
+	}
+
+	private boolean isCollectionModificationMethod(String methodName) {
+		return Set.of("add", "remove", "addAll", "removeAll", "clear", "put", "putAll", "removeIf")
+			.contains(methodName);
+	}
+
+	private String getFieldNameFromExpression(J expression) {
+		if (expression instanceof J.Identifier) {
+			return ((J.Identifier) expression).getSimpleName();
+		}
+		else if (expression instanceof J.FieldAccess) {
+			J.FieldAccess fieldAccess = (J.FieldAccess) expression;
+			if (fieldAccess.getTarget() instanceof J.Identifier
+					&& ((J.Identifier) fieldAccess.getTarget()).getSimpleName().equals("this")) {
+				return fieldAccess.getSimpleName();
+			}
+		}
+		return null;
+	}
+
+	private void recordIssue(String fieldName, String description, String location) {
+		statefulIssues.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(new Issue(description, location));
+	}
+
+	private boolean hasAnyBeanAnnotation(J.ClassDeclaration classDecl) {
+		return classDecl.getLeadingAnnotations()
+			.stream()
+			.anyMatch(ann -> BEAN_ANNOTATIONS.contains(getSimpleAnnotationName(ann)));
+	}
+
+	private boolean hasAnyInjectionAnnotation(J.VariableDeclarations variableDecl) {
+		return variableDecl.getLeadingAnnotations()
+			.stream()
+			.anyMatch(ann -> INJECTION_ANNOTATIONS.contains(getSimpleAnnotationName(ann)));
+	}
+
+	private boolean hasAnnotation(J.MethodDeclaration method, String annotationName) {
+		return method.getLeadingAnnotations()
+			.stream()
+			.anyMatch(ann -> annotationName.equals(getSimpleAnnotationName(ann)));
+	}
+
+	private String getSimpleAnnotationName(J.Annotation annotation) {
+		if (annotation.getAnnotationType() instanceof J.Identifier) {
+			return ((J.Identifier) annotation.getAnnotationType()).getSimpleName();
+		}
+		else if (annotation.getAnnotationType() instanceof J.FieldAccess) {
+			return ((J.FieldAccess) annotation.getAnnotationType()).getSimpleName();
+		}
+		return "";
+	}
+
+	private static class Issue {
+
+		final String description;
+
+		final String location;
+
+		Issue(String description, String location) {
+			this.description = description;
+			this.location = location;
+		}
+
+	}
+
+	public enum IssueLevel {
+
+		ERROR, WARNING
+
+	}
+
+	public static class StatefulIssue {
+
+		private final String fieldName;
+
+		private final String message;
+
+		private final IssueLevel level;
+
+		public StatefulIssue(String fieldName, String message, IssueLevel level) {
+			this.fieldName = fieldName;
+			this.message = message;
+			this.level = level;
+		}
+
+		public String fieldName() {
+			return fieldName;
+		}
+
+		public String message() {
+			return message;
+		}
+
+		public IssueLevel level() {
+			return level;
+		}
+
+	}
+
+	public List<StatefulIssue> getIssues() {
+		List<StatefulIssue> result = new ArrayList<>();
+		for (Map.Entry<String, List<Issue>> entry : statefulIssues.entrySet()) {
+			String fieldName = entry.getKey();
+			for (Issue issue : entry.getValue()) {
+				result.add(new StatefulIssue(fieldName,
+						issue.description + " to '" + fieldName + "' in " + issue.location, IssueLevel.ERROR));
+			}
+		}
+
+		// Add warnings for mutable collections and static non-final fields
+		result.addAll(detectWarnings());
+
+		return result;
+	}
+
+	private List<StatefulIssue> detectWarnings() {
+		List<StatefulIssue> warnings = new ArrayList<>();
+		// This would require analyzing field declarations during visit
+		// For now, return empty list - warnings can be implemented later if needed
+		return warnings;
+	}
+
+}
