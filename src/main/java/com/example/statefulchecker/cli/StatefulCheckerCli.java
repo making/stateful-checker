@@ -23,9 +23,13 @@ public class StatefulCheckerCli implements Callable<Integer> {
 	@Option(names = { "-v", "--verbose" }, description = "Enable verbose output")
 	private boolean verbose;
 
+	@Option(names = { "--csv" }, description = "Output results in CSV format")
+	private boolean csvOutput;
+
 	@Override
 	public Integer call() throws Exception {
 		SingleFileProcessor processor = new SingleFileProcessor();
+		processor.setCsvOutput(csvOutput);
 
 		try {
 			if (inputPath.toFile().isFile()) {

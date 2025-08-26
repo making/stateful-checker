@@ -25,9 +25,21 @@ public class SingleFileProcessor {
 
 	private final StatefulCodeRecipe recipe;
 
+	private boolean csvOutput = false;
+
+	private boolean csvHeaderPrinted = false;
+
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
 		this.recipe = new StatefulCodeRecipe();
+	}
+
+	/**
+	 * Set CSV output mode.
+	 * @param csvOutput true to enable CSV output, false for normal output
+	 */
+	public void setCsvOutput(boolean csvOutput) {
+		this.csvOutput = csvOutput;
 	}
 
 	/**
@@ -53,11 +65,16 @@ public class SingleFileProcessor {
 				detector.visit(compilationUnit, ctx);
 
 				if (detector.hasStatefulIssues()) {
-					if (!foundIssues) {
-						System.out.println("\nStateful code detected in: " + filePath);
-						foundIssues = true;
+					if (csvOutput) {
+						outputCsvResults(filePath, detector);
 					}
-					detector.reportIssues();
+					else {
+						if (!foundIssues) {
+							System.out.println("\nStateful code detected in: " + filePath);
+							foundIssues = true;
+						}
+						detector.reportIssues();
+					}
 				}
 			}
 		}
@@ -79,6 +96,82 @@ public class SingleFileProcessor {
 				}
 			});
 		}
+	}
+
+	/**
+	 * Print CSV header if not already printed.
+	 */
+	private void printCsvHeader() {
+		if (!csvHeaderPrinted) {
+			System.out.println("File,Field,Issue,Level,Method");
+			csvHeaderPrinted = true;
+		}
+	}
+
+	/**
+	 * Output detection results in CSV format.
+	 * @param filePath the path of the file being processed
+	 * @param detector the detector with results
+	 */
+	private void outputCsvResults(Path filePath, StatefulCodeDetector detector) {
+		printCsvHeader();
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detector.getIssues();
+		for (StatefulCodeDetector.StatefulIssue issue : issues) {
+			// Parse method from message like "Field assignment to 'state' in method
+			// process"
+			String method = extractMethodFromMessage(issue.message());
+			String issueType = extractIssueTypeFromMessage(issue.message());
+
+			// Escape CSV values and output
+			System.out.printf("%s,%s,%s,%s,%s%n", escapeCsv(filePath.toString()), escapeCsv(issue.fieldName()),
+					escapeCsv(issueType), escapeCsv(issue.level().toString()), escapeCsv(method));
+		}
+	}
+
+	/**
+	 * Extract method name from issue message.
+	 */
+	private String extractMethodFromMessage(String message) {
+		// Extract method name from patterns like "... in method methodName"
+		int methodIndex = message.lastIndexOf(" in method ");
+		if (methodIndex != -1) {
+			return message.substring(methodIndex + 11); // " in method ".length() = 11
+		}
+		return "";
+	}
+
+	/**
+	 * Extract issue type from message.
+	 */
+	private String extractIssueTypeFromMessage(String message) {
+		// Extract the issue type from the beginning of the message
+		if (message.startsWith("Field assignment")) {
+			return "Field assignment";
+		}
+		else if (message.startsWith("Collection modification")) {
+			return "Collection modification";
+		}
+		else if (message.startsWith("Increment operation")) {
+			return "Increment operation";
+		}
+		else if (message.startsWith("Decrement operation")) {
+			return "Decrement operation";
+		}
+		return message.split(" ")[0]; // fallback to first word
+	}
+
+	/**
+	 * Escape CSV values by quoting them if they contain commas, quotes, or newlines.
+	 */
+	private String escapeCsv(String value) {
+		if (value == null) {
+			return "";
+		}
+		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
 	}
 
 }
