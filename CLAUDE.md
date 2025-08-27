@@ -5,11 +5,12 @@ repository.
 
 ## Project Overview
 
-**Stateful Checker** - A Java CLI tool built with OpenRewrite for checking statefull code in EJB 3 (Stateless Session Bean) and Spring Beans.
+**Stateful Checker** - A Java CLI tool built with OpenRewrite for detecting stateful code patterns in EJB 3 (Stateless Session Bean) and Spring Beans.
 
 **Key Features:**
-- Check statuful code
+- Detect stateful code patterns in Spring and EJB components
 - Single file and directory batch processing
+- CSV output support for spreadsheet integration
 - Cross-platform support (Windows/Unix) with Jimfs testing
 - Standalone executable JAR with all dependencies
 
@@ -33,6 +34,8 @@ java -jar target/stateful-checker.jar [options] <input-path>
 # Options:
 #   -h, --help        Show help
 #   -V, --version     Show version
+#   --csv             Output results in CSV format
+#   -v, --verbose     Enable verbose output
 ```
 
 ## Architecture
