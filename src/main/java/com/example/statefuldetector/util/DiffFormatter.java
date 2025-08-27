@@ -1,4 +1,4 @@
-package com.example.statefulchecker.util;
+package com.example.statefuldetector.util;
 
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;

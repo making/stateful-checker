@@ -5,7 +5,7 @@ repository.
 
 ## Project Overview
 
-**Stateful Checker** - A Java CLI tool built with OpenRewrite for detecting stateful code patterns in EJB 3 (Stateless Session Bean) and Spring Beans.
+**Stateful Detector** - A Java CLI tool built with OpenRewrite for detecting stateful code patterns in EJB 3 (Stateless Session Bean) and Spring Beans.
 
 **Key Features:**
 - Detect stateful code patterns in Spring and EJB components
@@ -32,7 +32,7 @@ mvn compile                         # Compile only
 mvn clean package
 
 # Run from JAR
-java -jar target/stateful-checker.jar [options] <input-path>
+java -jar target/stateful-detector.jar [options] <input-path>
 
 # Options:
 #   -h, --help                    Show help
@@ -47,12 +47,12 @@ java -jar target/stateful-checker.jar [options] <input-path>
 ## Architecture
 
 ### Package Structure
-- `com.example.statefulchecker` - Main package
-- `com.example.statefulchecker.cli` - CLI interface
-- `com.example.statefulchecker.processor` - Core processing logic
-- `com.example.statefulchecker.visitor` - AST visitors
-- `com.example.statefulchecker.util` - Utility classes
-- `com.example.statefulchecker.recipe` - OpenRewrite recipes
+- `com.example.statefuldetector` - Main package
+- `com.example.statefuldetector.cli` - CLI interface
+- `com.example.statefuldetector.processor` - Core processing logic
+- `com.example.statefuldetector.visitor` - AST visitors
+- `com.example.statefuldetector.util` - Utility classes
+- `com.example.statefuldetector.recipe` - OpenRewrite recipes
 
 ### Key Technologies
 - **OpenRewrite** - AST manipulation framework (Apache 2.0 licensed components only)

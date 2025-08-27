@@ -1,4 +1,4 @@
-package com.example.statefulchecker.visitor;
+package com.example.statefuldetector.visitor;
 
 /**
  * Test stub class for parameterized tests

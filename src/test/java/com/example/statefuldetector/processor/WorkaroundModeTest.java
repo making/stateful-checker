@@ -1,4 +1,4 @@
-package com.example.statefulchecker.processor;
+package com.example.statefuldetector.processor;
 
 import org.junit.jupiter.api.Test;
 

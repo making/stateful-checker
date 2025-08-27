@@ -1,4 +1,4 @@
-package com.example.statefulchecker.visitor;
+package com.example.statefuldetector.visitor;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

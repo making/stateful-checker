@@ -1,4 +1,4 @@
-package com.example.statefulchecker.processor;
+package com.example.statefuldetector.processor;
 
 /**
  * Enum representing the different modes for workaround functionality.

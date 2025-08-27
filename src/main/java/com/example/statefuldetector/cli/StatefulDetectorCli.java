@@ -1,8 +1,8 @@
-package com.example.statefulchecker.cli;
+package com.example.statefuldetector.cli;
 
 import com.example.migration.cli.Version;
-import com.example.statefulchecker.processor.SingleFileProcessor;
-import com.example.statefulchecker.processor.WorkaroundMode;
+import com.example.statefuldetector.processor.SingleFileProcessor;
+import com.example.statefuldetector.processor.WorkaroundMode;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
@@ -11,13 +11,13 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
- * Command-line interface for the Stateful Checker tool.
+ * Command-line interface for the Stateful Detector tool.
  */
-@Command(name = "stateful-checker", mixinStandardHelpOptions = true, version = Version.VERSION_AS_JSON,
-		description = "Checks for stateful code in EJB 3 (Stateless Session Bean) and Spring Beans")
-public class StatefulCheckerCli implements Callable<Integer> {
+@Command(name = "stateful-detector", mixinStandardHelpOptions = true, version = Version.VERSION_AS_JSON,
+		description = "Detects stateful code in EJB 3 (Stateless Session Bean) and Spring Beans")
+public class StatefulDetectorCli implements Callable<Integer> {
 
-	@Parameters(index = "0", description = "Input file or directory to check")
+	@Parameters(index = "0", description = "Input file or directory to detect")
 	Path inputPath;
 
 	@Option(names = { "-v", "--verbose" }, description = "Enable verbose output")
@@ -85,7 +85,7 @@ public class StatefulCheckerCli implements Callable<Integer> {
 	}
 
 	public static void main(String[] args) {
-		int exitCode = new CommandLine(new StatefulCheckerCli()).execute(args);
+		int exitCode = new CommandLine(new StatefulDetectorCli()).execute(args);
 		System.exit(exitCode);
 	}
 

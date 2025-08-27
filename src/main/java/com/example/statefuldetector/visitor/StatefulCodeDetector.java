@@ -1,4 +1,4 @@
-package com.example.statefulchecker.visitor;
+package com.example.statefuldetector.visitor;
 
 import java.util.ArrayList;
 import java.util.HashMap;

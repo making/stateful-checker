@@ -1,4 +1,4 @@
-package com.example.statefulchecker.processor;
+package com.example.statefuldetector.processor;
 
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;

@@ -1,7 +1,7 @@
-package com.example.statefulchecker.processor;
+package com.example.statefuldetector.processor;
 
-import com.example.statefulchecker.recipe.StatefulCodeRecipe;
-import com.example.statefulchecker.visitor.StatefulCodeDetector;
+import com.example.statefuldetector.recipe.StatefulCodeRecipe;
+import com.example.statefuldetector.visitor.StatefulCodeDetector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +15,7 @@ import org.openrewrite.SourceFile;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
 
-import com.example.statefulchecker.util.DiffFormatter;
+import com.example.statefuldetector.util.DiffFormatter;
 
 /**
  * Processor for checking stateful code in single Java files.

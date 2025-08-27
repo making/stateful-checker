@@ -1,4 +1,4 @@
-# Stateful Checker
+# Stateful Detector
 
 A Java CLI tool for detecting stateful code patterns in Spring Beans and EJB Stateless Session Beans. Stateful instance variables in these components can lead to thread safety issues and unexpected behavior in multi-threaded environments.
 
@@ -39,8 +39,8 @@ The tool identifies several problematic patterns:
 ### Building from Source
 
 ```bash
-git clone https://github.com/yourusername/stateful-checker.git
-cd stateful-checker
+git clone https://github.com/making/stateful-detector.git
+cd stateful-detector
 mvn clean package
 ```
 
@@ -52,10 +52,10 @@ This creates an executable JAR in the `target` directory.
 
 ```bash
 # Check a single file
-java -jar target/stateful-checker.jar MyService.java
+java -jar target/stateful-detector.jar MyService.java
 
 # Check all Java files in a directory
-java -jar target/stateful-checker.jar src/main/java
+java -jar target/stateful-detector.jar src/main/java
 ```
 
 ### CSV Output
@@ -63,7 +63,7 @@ java -jar target/stateful-checker.jar src/main/java
 Export results to CSV format for spreadsheet analysis:
 
 ```bash
-java -jar target/stateful-checker.jar --csv src/main/java > results.csv
+java -jar target/stateful-detector.jar --csv src/main/java > results.csv
 ```
 
 CSV columns:
@@ -79,13 +79,13 @@ Automatically fix stateful Spring Beans by adding `@Scope` annotations:
 
 ```bash
 # Show diff of proposed changes without modifying files
-java -jar target/stateful-checker.jar --workaround-mode=diff src/main/java
+java -jar target/stateful-detector.jar --workaround-mode=diff src/main/java
 
 # Apply changes directly to files
-java -jar target/stateful-checker.jar --workaround-mode=apply src/main/java
+java -jar target/stateful-detector.jar --workaround-mode=apply src/main/java
 
 # Use custom scope and proxy mode
-java -jar target/stateful-checker.jar --workaround-mode=apply \
+java -jar target/stateful-detector.jar --workaround-mode=apply \
   --workaround-scope-name=request \
   --workaround-proxy-mode=INTERFACES \
   src/main/java
@@ -94,7 +94,7 @@ java -jar target/stateful-checker.jar --workaround-mode=apply \
 ### Command Line Options
 
 ```
-Usage: stateful-checker [-hvV] [--csv] [--workaround-mode=<workaroundMode>]
+Usage: stateful-detector [-hvV] [--csv] [--workaround-mode=<workaroundMode>]
                         [--workaround-proxy-mode=<workaroundProxyMode>]
                         [--workaround-scope-name=<workaroundScopeName>]
                         <inputPath>

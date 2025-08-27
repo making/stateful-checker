@@ -1,10 +1,10 @@
-package com.example.statefulchecker.recipe;
+package com.example.statefuldetector.recipe;
 
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.TreeVisitor;
 
-import com.example.statefulchecker.visitor.StatefulCodeDetector;
+import com.example.statefuldetector.visitor.StatefulCodeDetector;
 
 /**
  * Recipe for detecting stateful code in Spring and EJB beans.
