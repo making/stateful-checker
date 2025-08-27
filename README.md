@@ -92,14 +92,16 @@ Options:
 ```java
 @Service
 public class UserService {
+    private String lastUser;  // Stateful field
     private List<User> cache = new ArrayList<>();  // Stateful field
     
-    public void addUser(User user) {
+    public void processUser(User user) {
+        lastUser = user.getName();  // ERROR: Field assignment
         cache.add(user);  // ERROR: Collection modification
     }
     
-    public List<User> getUsers() {
-        return cache;
+    public String getLastUser() {
+        return lastUser;
     }
 }
 ```
@@ -108,15 +110,18 @@ public class UserService {
 
 ```
 Stateful code detected in: src/main/java/com/example/UserService.java
+  Field: lastUser
+    - Field assignment to 'lastUser' in method processUser
   Field: cache
-    - Collection modification (add on cache) in method addUser
+    - Collection modification (add on cache) in method processUser
 ```
 
 ### Example CSV Output
 
 ```csv
 File,Field,Issue,Level,Method
-src/main/java/com/example/UserService.java,cache,Collection modification,ERROR,addUser
+src/main/java/com/example/UserService.java,lastUser,Field assignment,ERROR,processUser
+src/main/java/com/example/UserService.java,cache,Collection modification,ERROR,processUser
 ```
 
 ## License
