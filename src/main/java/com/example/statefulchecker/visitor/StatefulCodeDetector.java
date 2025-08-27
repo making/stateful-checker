@@ -23,6 +23,8 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private boolean isInBeanClass = false;
 
+	private boolean isConfigurationPropertiesClass = false;
+
 	private String currentClassName = "";
 
 	private final Set<String> finalFields = new HashSet<>();
@@ -68,6 +70,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		String previousClassName = currentClassName;
 
 		isInBeanClass = hasAnyBeanAnnotation(classDecl);
+		isConfigurationPropertiesClass = hasAnnotation(classDecl, "ConfigurationProperties");
 		currentClassName = classDecl.getSimpleName();
 
 		// Reset field tracking for this class
@@ -239,8 +242,10 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 	}
 
 	private void handleFieldAssignment(String fieldName) {
-		// Skip if field is final, injected, or we're in an allowed context
-		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inStaticInitializer) {
+		// Skip if field is final, injected, in an allowed context, or in
+		// @ConfigurationProperties class
+		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inStaticInitializer
+				&& !isConfigurationPropertiesClass) {
 			recordIssue(fieldName, "Field assignment", "method " + currentMethodName);
 		}
 	}
@@ -305,6 +310,12 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private boolean hasAnnotation(J.MethodDeclaration method, String annotationName) {
 		return method.getLeadingAnnotations()
+			.stream()
+			.anyMatch(ann -> annotationName.equals(getSimpleAnnotationName(ann)));
+	}
+
+	private boolean hasAnnotation(J.ClassDeclaration classDecl, String annotationName) {
+		return classDecl.getLeadingAnnotations()
 			.stream()
 			.anyMatch(ann -> annotationName.equals(getSimpleAnnotationName(ann)));
 	}

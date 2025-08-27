@@ -505,6 +505,61 @@ class StatefulCodeDetectorParameterizedTest {
 				Arguments.of("@RestController", "TreeSet<String>", "collection.add(\"item\")"));
 	}
 
+	@Test
+	void allowFieldAssignmentInConfigurationPropertiesClass() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Component;
+				import org.springframework.boot.context.properties.ConfigurationProperties;
+
+				@Component
+				@ConfigurationProperties(prefix = "app")
+				public class AppProperties {
+				    private String name;
+				    private int port;
+
+				    public void setName(String name) {
+				        this.name = name; // Should NOT be flagged in @ConfigurationProperties class
+				    }
+
+				    public void setPort(int port) {
+				        this.port = port; // Should NOT be flagged in @ConfigurationProperties class
+				    }
+				}
+				""";
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// @ConfigurationProperties classes should not generate field assignment errors
+		assertThat(issues).isEmpty();
+	}
+
+	@Test
+	void detectFieldAssignmentInRegularComponentClass() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Component;
+
+				@Component
+				public class RegularComponent {
+				    private String state;
+
+				    public void setState(String state) {
+				        this.state = state; // Should be flagged in regular @Component class
+				    }
+				}
+				""";
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Regular component classes should generate field assignment errors
+		assertThat(issues).hasSize(1);
+		assertThat(issues.get(0).message()).contains("Field assignment");
+		assertThat(issues.get(0).fieldName()).isEqualTo("state");
+	}
+
 	private String getConstructorCall(String collectionType) {
 		if (collectionType.contains("ArrayBlockingQueue")) {
 			return "ArrayBlockingQueue<>(10)";
