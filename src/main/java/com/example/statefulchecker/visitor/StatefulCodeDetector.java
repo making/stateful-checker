@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.tree.J;
@@ -152,16 +151,14 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		}
 
 		// Check if this is an instance field assignment
-		if (assignment.getVariable() instanceof J.FieldAccess) {
-			J.FieldAccess fieldAccess = (J.FieldAccess) assignment.getVariable();
+		if (assignment.getVariable() instanceof J.FieldAccess fieldAccess) {
 			if (fieldAccess.getTarget() instanceof J.Identifier
 					&& ((J.Identifier) fieldAccess.getTarget()).getSimpleName().equals("this")) {
 				handleFieldAssignment(fieldAccess.getSimpleName());
 			}
 		}
-		else if (assignment.getVariable() instanceof J.Identifier) {
+		else if (assignment.getVariable() instanceof J.Identifier identifier) {
 			// Direct field access without 'this'
-			J.Identifier identifier = (J.Identifier) assignment.getVariable();
 			if (isInstanceField(identifier.getSimpleName())) {
 				handleFieldAssignment(identifier.getSimpleName());
 			}
@@ -253,8 +250,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		if (expression instanceof J.Identifier) {
 			return ((J.Identifier) expression).getSimpleName();
 		}
-		else if (expression instanceof J.FieldAccess) {
-			J.FieldAccess fieldAccess = (J.FieldAccess) expression;
+		else if (expression instanceof J.FieldAccess fieldAccess) {
 			if (fieldAccess.getTarget() instanceof J.Identifier
 					&& ((J.Identifier) fieldAccess.getTarget()).getSimpleName().equals("this")) {
 				return fieldAccess.getSimpleName();
@@ -314,31 +310,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	}
 
-	public static class StatefulIssue {
-
-		private final String fieldName;
-
-		private final String message;
-
-		private final IssueLevel level;
-
-		public StatefulIssue(String fieldName, String message, IssueLevel level) {
-			this.fieldName = fieldName;
-			this.message = message;
-			this.level = level;
-		}
-
-		public String fieldName() {
-			return fieldName;
-		}
-
-		public String message() {
-			return message;
-		}
-
-		public IssueLevel level() {
-			return level;
-		}
+	public record StatefulIssue(String fieldName, String message, IssueLevel level) {
 
 	}
 
