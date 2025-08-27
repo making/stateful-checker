@@ -1,6 +1,6 @@
 package com.example.statefuldetector.report;
 
-import com.example.statefuldetector.visitor.StatefulCodeDetector;
+import com.example.statefuldetector.StatefulIssue;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -14,7 +14,7 @@ public interface StatefulIssueReporter {
 	 * @param filePath the path of the file being processed
 	 * @param issues the list of issues detected
 	 */
-	void reportIssues(Path filePath, List<StatefulCodeDetector.StatefulIssue> issues);
+	void reportIssues(Path filePath, List<StatefulIssue> issues);
 
 	/**
 	 * Called when processing starts to allow initialization.

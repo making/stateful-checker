@@ -1,6 +1,6 @@
 package com.example.statefuldetector.report;
 
-import com.example.statefuldetector.visitor.StatefulCodeDetector;
+import com.example.statefuldetector.StatefulIssue;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -9,7 +9,7 @@ import java.util.Set;
 /**
  * Reporter that outputs issues in CSV format.
  */
-public class CsvReporter implements StatefulIssueReporter {
+class CsvReporter implements StatefulIssueReporter {
 
 	private boolean headerPrinted = false;
 
@@ -24,8 +24,8 @@ public class CsvReporter implements StatefulIssueReporter {
 	}
 
 	@Override
-	public void reportIssues(Path filePath, List<StatefulCodeDetector.StatefulIssue> issues) {
-		for (StatefulCodeDetector.StatefulIssue issue : issues) {
+	public void reportIssues(Path filePath, List<StatefulIssue> issues) {
+		for (StatefulIssue issue : issues) {
 			String method = extractMethodFromMessage(issue.message());
 			String issueType = extractIssueTypeFromMessage(issue.message());
 

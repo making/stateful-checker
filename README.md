@@ -7,7 +7,7 @@ A Java CLI tool for detecting stateful code patterns in Spring Beans and EJB Sta
 - Detects instance variable modifications in Spring and EJB components
 - Supports both `javax` and `jakarta` package namespaces
 - Single file and directory batch processing
-- CSV output for spreadsheet integration
+- Flexible output formats (default human-readable, CSV) for different use cases
 - **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
 - Thread-safe collection detection (excludes `java.util.concurrent` collections)
 - Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
@@ -59,12 +59,16 @@ java -jar target/stateful-detector.jar MyService.java
 java -jar target/stateful-detector.jar src/main/java
 ```
 
-### CSV Output
+### Output Formats
 
-Export results to CSV format for spreadsheet analysis:
+The tool supports multiple output formats:
 
 ```bash
-java -jar target/stateful-detector.jar --csv src/main/java > results.csv
+# Default human-readable format
+java -jar target/stateful-detector.jar src/main/java
+
+# CSV format for spreadsheet analysis
+java -jar target/stateful-detector.jar --report-format=csv src/main/java > results.csv
 ```
 
 CSV columns:
@@ -101,10 +105,11 @@ java -jar target/stateful-detector.jar --allowed-scope=thread --allowed-scope=jo
 ### Command Line Options
 
 ```
-Usage: stateful-detector [-hvV] [--csv] [--workaround-mode=<workaroundMode>]
+Usage: stateful-detector [-hvV] [--report-format=<reportFormat>]
+                        [--workaround-mode=<workaroundMode>]
                         [--workaround-proxy-mode=<workaroundProxyMode>]
                         [--workaround-scope-name=<workaroundScopeName>]
-                        [--allowed-scope=<additionalScopes>]...
+                        [--allowed-scope=<allowedScopes>]...
                         <inputPath>
 
 Parameters:
@@ -113,7 +118,7 @@ Parameters:
 Options:
   -h, --help               Show this help message and exit
   -V, --version            Print version information and exit
-  --csv                    Output results in CSV format
+  --report-format=<FORMAT> Report output format (default|csv)
   -v, --verbose            Enable verbose output
   --workaround-mode=<MODE> Apply workaround by adding scope annotations (apply|diff)
   --workaround-scope-name=<SCOPE> 

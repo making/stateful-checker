@@ -10,7 +10,7 @@ repository.
 **Key Features:**
 - Detect stateful code patterns in Spring and EJB components
 - Single file and directory batch processing
-- CSV output support for spreadsheet integration with duplicate suppression
+- Flexible output formats (default human-readable, CSV) with Reporter pattern architecture
 - **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
 - Thread-safe collection detection (excludes `java.util.concurrent` collections)
 - Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
@@ -37,7 +37,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 # Options:
 #   -h, --help                    Show help
 #   -V, --version                 Show version
-#   --csv                         Output results in CSV format
+#   --report-format=<FORMAT>      Report output format (default|csv)
 #   -v, --verbose                 Enable verbose output
 #   --workaround-mode=<MODE>      Apply workaround by adding scope annotations (apply|diff)
 #   --workaround-scope-name=<SCOPE> Scope name for workaround (default: prototype)
@@ -48,17 +48,18 @@ java -jar target/stateful-detector.jar [options] <input-path>
 ## Architecture
 
 ### Package Structure
-- `com.example.statefuldetector` - Main package
+- `com.example.statefuldetector` - Main package (contains StatefulIssue, IssueLevel)
 - `com.example.statefuldetector.cli` - CLI interface
 - `com.example.statefuldetector.processor` - Core processing logic
 - `com.example.statefuldetector.visitor` - AST visitors
 - `com.example.statefuldetector.util` - Utility classes
 - `com.example.statefuldetector.recipe` - OpenRewrite recipes
+- `com.example.statefuldetector.report` - Reporter implementations and formats
 
 ### Key Technologies
 - **OpenRewrite** - AST manipulation framework (Apache 2.0 licensed components only)
 - **Picocli** - CLI framework
-- **JUnit 5** - Testing framework (127 tests total)
+- **JUnit 5** - Testing framework (142 tests total)
 - **AssertJ** - Fluent assertions
 - **Jimfs 1.3.1** - In-memory file system for cross-platform testing
 - **java-diff-utils** - Myers algorithm-based unified diffs
@@ -121,6 +122,8 @@ java -jar target/stateful-detector.jar [options] <input-path>
 - **Configuration properties** - Excludes @ConfigurationProperties classes
 - **Initialization methods** - Permits field assignments in @PostConstruct and afterPropertiesSet methods
 - **Allowed scopes** - Permits prototype/request scoped beans by default, plus custom scopes via CLI
+- **Reporter pattern** - Extensible output format architecture using Supplier pattern
+- **ReportFormat enum** - Type-safe format selection with factory methods
 - **CSV duplicate suppression** - Uses string concatenation for performance
 
 ### Scope Generation
@@ -132,7 +135,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 ## After Task Completion
 
 - Ensure all code is formatted using `mvn spring-javaformat:apply`
-- Run full test suite with `mvn test` (must pass all 127 tests)
+- Run full test suite with `mvn test` (must pass all 142 tests)
 - Verify executable JAR creation with `mvn clean package`
 - Test CLI functionality with sample files including workaround modes
 - For every task, notify completion with:

@@ -1,5 +1,6 @@
 package com.example.statefuldetector.cli;
 
+import com.example.statefuldetector.report.ReportFormat;
 import com.example.statefuldetector.processor.SingleFileProcessor;
 import com.example.statefuldetector.processor.WorkaroundMode;
 import java.nio.file.Path;
@@ -23,8 +24,8 @@ public class StatefulDetectorCli implements Callable<Integer> {
 	@Option(names = { "-v", "--verbose" }, description = "Enable verbose output")
 	boolean verbose;
 
-	@Option(names = { "--csv" }, description = "Output results in CSV format")
-	boolean csvOutput;
+	@Option(names = { "--report-format" }, description = "Report output format (default|csv)")
+	String reportFormat = "default";
 
 	@Option(names = { "--workaround-mode" }, description = "Apply workaround by adding scope annotations (apply|diff)")
 	String workaroundMode;
@@ -52,8 +53,18 @@ public class StatefulDetectorCli implements Callable<Integer> {
 			}
 		}
 
+		// Parse and validate report format
+		ReportFormat parsedReportFormat;
+		try {
+			parsedReportFormat = ReportFormat.fromString(reportFormat);
+		}
+		catch (IllegalArgumentException e) {
+			System.err.println("Error: " + e.getMessage());
+			return 1;
+		}
+
 		SingleFileProcessor processor = new SingleFileProcessor();
-		processor.setCsvOutput(csvOutput);
+		processor.setReportFormat(parsedReportFormat);
 
 		if (parsedWorkaroundMode != null) {
 			processor.setWorkaroundMode(parsedWorkaroundMode);

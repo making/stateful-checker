@@ -1,14 +1,13 @@
 package com.example.statefuldetector.processor;
 
 import com.example.statefuldetector.recipe.StatefulCodeRecipe;
-import com.example.statefuldetector.report.ConsoleReporter;
-import com.example.statefuldetector.report.CsvReporter;
+import com.example.statefuldetector.report.ReportFormat;
 import com.example.statefuldetector.report.StatefulIssueReporter;
+import com.example.statefuldetector.util.DiffFormatter;
 import com.example.statefuldetector.visitor.StatefulCodeDetector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -17,8 +16,6 @@ import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.SourceFile;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
-
-import com.example.statefuldetector.util.DiffFormatter;
 
 /**
  * Processor for checking stateful code in single Java files.
@@ -42,15 +39,15 @@ public class SingleFileProcessor {
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
 		this.recipe = new StatefulCodeRecipe();
-		this.reporter = new ConsoleReporter(); // Default reporter
+		this.reporter = ReportFormat.DEFAULT.createReporter(); // Default reporter
 	}
 
 	/**
-	 * Set CSV output mode.
-	 * @param csvOutput true to enable CSV output, false for normal output
+	 * Set report format.
+	 * @param reportFormat the report format to use
 	 */
-	public void setCsvOutput(boolean csvOutput) {
-		this.reporter = csvOutput ? new CsvReporter() : new ConsoleReporter();
+	public void setReportFormat(ReportFormat reportFormat) {
+		this.reporter = reportFormat.createReporter();
 	}
 
 	/**

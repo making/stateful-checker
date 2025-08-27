@@ -1,5 +1,7 @@
 package com.example.statefuldetector.visitor;
 
+import com.example.statefuldetector.IssueLevel;
+import com.example.statefuldetector.StatefulIssue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -395,16 +397,6 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 			this.description = description;
 			this.location = location;
 		}
-
-	}
-
-	public enum IssueLevel {
-
-		ERROR, WARNING
-
-	}
-
-	public record StatefulIssue(String fieldName, String message, IssueLevel level) {
 
 	}
 

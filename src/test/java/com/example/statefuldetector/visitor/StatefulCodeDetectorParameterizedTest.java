@@ -1,5 +1,6 @@
 package com.example.statefuldetector.visitor;
 
+import com.example.statefuldetector.StatefulIssue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -52,7 +53,7 @@ class StatefulCodeDetectorParameterizedTest {
 				""".formatted(springAnnotation.substring(1), // Remove @ for import
 				pkg, springAnnotation, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).hasSize(1);
 		assertThat(issues.get(0).message()).contains("Field assignment to 'state' in method process");
 	}
@@ -90,7 +91,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(springAnnotation.substring(1), pkg, pkg, springAnnotation, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -119,7 +120,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(springAnnotation.substring(1), pkg, springAnnotation, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).hasSize(1);
 		assertThat(issues.get(0).message()).contains("Field assignment to 'temp' in method process");
 	}
@@ -151,7 +152,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(pkg, pkg, pkg, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).hasSize(1);
 		assertThat(issues.get(0).message()).contains("Increment operation to 'counter'");
 	}
@@ -185,7 +186,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(pkg, pkg, pkg, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).hasSize(1);
 		assertThat(issues.get(0).message()).contains("Collection modification 'add' to 'results'");
 	}
@@ -219,7 +220,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(pkg, pkg, pkg, injectionAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -260,7 +261,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).hasSize(1);
 		assertThat(issues.get(0).message()).contains("Field assignment to 'config' in method updateConfig");
 	}
@@ -283,7 +284,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -308,7 +309,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -339,7 +340,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		if (!issues.isEmpty()) {
 			System.out.println("Unexpected issues in allowLocalVariablesOnly:");
 			issues.forEach(issue -> System.out.println("  " + issue.message()));
@@ -369,7 +370,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -395,7 +396,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -425,7 +426,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 		assertThat(issues).isEmpty();
 	}
 
@@ -450,7 +451,7 @@ class StatefulCodeDetectorParameterizedTest {
 				""".formatted(springAnnotation.replace("@", ""), springAnnotation, collectionType,
 				getConstructorCall(collectionType), methodCall);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Thread-safe collections should not generate errors
 		assertThat(issues).isEmpty();
@@ -476,7 +477,7 @@ class StatefulCodeDetectorParameterizedTest {
 				""".formatted(springAnnotation.replace("@", ""), springAnnotation, collectionType,
 				getConstructorCall(collectionType), methodCall);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Non-thread-safe collections should generate errors
 		assertThat(issues).hasSize(1);
@@ -530,7 +531,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// @ConfigurationProperties classes should not generate field assignment errors
 		assertThat(issues).isEmpty();
@@ -566,7 +567,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(postConstructPackage);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Only updateConfig method assignment should be flagged
 		assertThat(issues).hasSize(1);
@@ -620,7 +621,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Only updateConfig method assignment should be flagged
 		assertThat(issues).hasSize(1);
@@ -660,7 +661,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Only updateState method assignment should be flagged
 		assertThat(issues).hasSize(1);
@@ -700,7 +701,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// updateCache and changeServiceName should be flagged
 		assertThat(issues).hasSize(2);
@@ -727,7 +728,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""";
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Regular component classes should generate field assignment errors
 		assertThat(issues).hasSize(1);
@@ -778,7 +779,7 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(springAnnotation.replace("@", ""), springAnnotation, scopeAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Allowed scope classes should not generate any errors
 		assertThat(issues).isEmpty();
@@ -826,13 +827,12 @@ class StatefulCodeDetectorParameterizedTest {
 				}
 				""".formatted(springAnnotation.replace("@", ""), springAnnotation, scopeAnnotation);
 
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+		List<StatefulIssue> issues = detectIssues(sourceCode);
 
 		// Disallowed scope classes should generate errors
 		assertThat(issues).hasSize(3); // Field assignment + increment + collection
 										// modification
-		assertThat(issues).extracting(StatefulCodeDetector.StatefulIssue::fieldName)
-			.containsExactlyInAnyOrder("state", "counter", "items");
+		assertThat(issues).extracting(StatefulIssue::fieldName).containsExactlyInAnyOrder("state", "counter", "items");
 	}
 
 	private static Stream<Arguments> disallowedScopeCombinations() {
@@ -884,8 +884,7 @@ class StatefulCodeDetectorParameterizedTest {
 
 		// Detect issues with thread scope as additional allowed scope
 		Set<String> additionalScopes = Set.of("thread");
-		List<StatefulCodeDetector.StatefulIssue> issues = detectIssuesWithAdditionalScopes(sourceCode,
-				additionalScopes);
+		List<StatefulIssue> issues = detectIssuesWithAdditionalScopes(sourceCode, additionalScopes);
 
 		// Additional allowed scope classes should not generate any errors
 		assertThat(issues).isEmpty();
@@ -898,7 +897,7 @@ class StatefulCodeDetectorParameterizedTest {
 				Arguments.of("@Repository", "@Scope(scopeName = \"thread\")"));
 	}
 
-	private List<StatefulCodeDetector.StatefulIssue> detectIssues(String sourceCode) {
+	private List<StatefulIssue> detectIssues(String sourceCode) {
 		// Add stub class definitions
 		String stubClasses = """
 				package com.example;
@@ -922,8 +921,7 @@ class StatefulCodeDetectorParameterizedTest {
 		return detector.getIssues();
 	}
 
-	private List<StatefulCodeDetector.StatefulIssue> detectIssuesWithAdditionalScopes(String sourceCode,
-			Set<String> additionalScopes) {
+	private List<StatefulIssue> detectIssuesWithAdditionalScopes(String sourceCode, Set<String> additionalScopes) {
 		// Add stub class definitions
 		String stubClasses = """
 				package com.example;
