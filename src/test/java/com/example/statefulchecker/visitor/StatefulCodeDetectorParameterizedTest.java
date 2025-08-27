@@ -570,6 +570,108 @@ class StatefulCodeDetectorParameterizedTest {
 		return collectionType + "()";
 	}
 
+	@ParameterizedTest
+	@MethodSource("allowedScopeCombinations")
+	void allowStatefulCodeInAllowedScopes(String springAnnotation, String scopeAnnotation) {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.%s;
+				import org.springframework.context.annotation.Scope;
+				import org.springframework.web.context.annotation.RequestScope;
+				import org.springframework.web.context.WebApplicationContext;
+				import java.util.*;
+
+				%s
+				%s
+				public class ScopedService {
+				    private String state;
+				    private int counter;
+				    private List<String> items = new ArrayList<>();
+
+				    public void setState(String state) {
+				        this.state = state; // Should NOT be flagged in allowed scopes
+				    }
+
+				    public void increment() {
+				        counter++; // Should NOT be flagged in allowed scopes
+				    }
+
+				    public void addItem(String item) {
+				        items.add(item); // Should NOT be flagged in allowed scopes
+				    }
+				}
+				""".formatted(springAnnotation.replace("@", ""), springAnnotation, scopeAnnotation);
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Allowed scope classes should not generate any errors
+		assertThat(issues).isEmpty();
+	}
+
+	private static Stream<Arguments> allowedScopeCombinations() {
+		return Stream.of(Arguments.of("@Service", "@Scope(\"prototype\")"),
+				Arguments.of("@Component", "@Scope(value = \"prototype\")"),
+				Arguments.of("@Repository", "@Scope(scopeName = \"prototype\")"),
+				Arguments.of("@Controller", "@Scope(\"request\")"),
+				Arguments.of("@RestController", "@Scope(value = \"request\")"),
+				Arguments.of("@Service", "@RequestScope"),
+				Arguments.of("@Component", "@Scope(WebApplicationContext.SCOPE_REQUEST)"));
+	}
+
+	@ParameterizedTest
+	@MethodSource("disallowedScopeCombinations")
+	void detectStatefulCodeInDisallowedScopes(String springAnnotation, String scopeAnnotation) {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.%s;
+				import org.springframework.context.annotation.Scope;
+				import org.springframework.web.context.WebApplicationContext;
+				import java.util.*;
+
+				%s
+				%s
+				public class ScopedService {
+				    private String state;
+				    private int counter;
+				    private List<String> items = new ArrayList<>();
+
+				    public void setState(String state) {
+				        this.state = state; // Should be flagged in disallowed scopes
+				    }
+
+				    public void increment() {
+				        counter++; // Should be flagged in disallowed scopes
+				    }
+
+				    public void addItem(String item) {
+				        items.add(item); // Should be flagged in disallowed scopes
+				    }
+				}
+				""".formatted(springAnnotation.replace("@", ""), springAnnotation, scopeAnnotation);
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Disallowed scope classes should generate errors
+		assertThat(issues).hasSize(3); // Field assignment + increment + collection
+										// modification
+		assertThat(issues).extracting(StatefulCodeDetector.StatefulIssue::fieldName)
+			.containsExactlyInAnyOrder("state", "counter", "items");
+	}
+
+	private static Stream<Arguments> disallowedScopeCombinations() {
+		return Stream.of(Arguments.of("@Service", "@Scope(\"session\")"),
+				Arguments.of("@Component", "@Scope(value = \"session\")"),
+				Arguments.of("@Repository", "@Scope(WebApplicationContext.SCOPE_SESSION)"),
+				Arguments.of("@Controller", "@Scope(\"application\")"),
+				Arguments.of("@RestController", "@Scope(value = \"application\")"),
+				Arguments.of("@Service", "@Scope(WebApplicationContext.SCOPE_APPLICATION)"),
+				Arguments.of("@Component", "@Scope(\"singleton\")") // singleton should
+																	// also be detected
+		);
+	}
+
 	private List<StatefulCodeDetector.StatefulIssue> detectIssues(String sourceCode) {
 		// Add stub class definitions
 		String stubClasses = """

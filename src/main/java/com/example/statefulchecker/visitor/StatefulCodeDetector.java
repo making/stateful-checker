@@ -25,6 +25,8 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private boolean isConfigurationPropertiesClass = false;
 
+	private boolean isAllowedScope = false;
+
 	private String currentClassName = "";
 
 	private final Set<String> finalFields = new HashSet<>();
@@ -71,6 +73,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 		isInBeanClass = hasAnyBeanAnnotation(classDecl);
 		isConfigurationPropertiesClass = hasAnnotation(classDecl, "ConfigurationProperties");
+		isAllowedScope = hasAllowedScope(classDecl);
 		currentClassName = classDecl.getSimpleName();
 
 		// Reset field tracking for this class
@@ -190,7 +193,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 			if (isCollectionModificationMethod(methodName)) {
 				String fieldName = getFieldNameFromExpression(method.getSelect());
 				if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
-						&& !inPostConstruct && !inStaticInitializer) {
+						&& !inPostConstruct && !inStaticInitializer && !isAllowedScope) {
 
 					// Check if this is a thread-safe collection - skip if it is
 					String fieldType = fieldTypes.get(fieldName);
@@ -216,7 +219,8 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 				|| unary.getOperator() == J.Unary.Type.PostDecrement
 				|| unary.getOperator() == J.Unary.Type.PreDecrement) {
 			String fieldName = getFieldNameFromExpression(unary.getExpression());
-			if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName)) {
+			if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
+					&& !inPostConstruct && !inStaticInitializer && !isAllowedScope) {
 				String operationType = (unary.getOperator() == J.Unary.Type.PostIncrement
 						|| unary.getOperator() == J.Unary.Type.PreIncrement) ? "Increment operation"
 								: "Decrement operation";
@@ -242,10 +246,10 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 	}
 
 	private void handleFieldAssignment(String fieldName) {
-		// Skip if field is final, injected, in an allowed context, or in
-		// @ConfigurationProperties class
+		// Skip if field is final, injected, in an allowed context, in
+		// @ConfigurationProperties class, or in allowed scope
 		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inStaticInitializer
-				&& !isConfigurationPropertiesClass) {
+				&& !isConfigurationPropertiesClass && !isAllowedScope) {
 			recordIssue(fieldName, "Field assignment", "method " + currentMethodName);
 		}
 	}
@@ -318,6 +322,33 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		return classDecl.getLeadingAnnotations()
 			.stream()
 			.anyMatch(ann -> annotationName.equals(getSimpleAnnotationName(ann)));
+	}
+
+	private boolean hasAllowedScope(J.ClassDeclaration classDecl) {
+		// Check for @RequestScope annotation
+		if (hasAnnotation(classDecl, "RequestScope")) {
+			return true;
+		}
+
+		// Check for @Scope annotation with allowed values
+		return classDecl.getLeadingAnnotations().stream().anyMatch(ann -> {
+			if (!"Scope".equals(getSimpleAnnotationName(ann))) {
+				return false;
+			}
+
+			// Check annotation arguments for prototype or request scope
+			if (ann.getArguments() != null) {
+				return ann.getArguments().stream().anyMatch(arg -> {
+					String argStr = arg.toString();
+					// Handle @Scope("prototype"), @Scope(value = "prototype"),
+					// @Scope(scopeName = "prototype")
+					// Also handle WebApplicationContext.SCOPE_REQUEST constant
+					return argStr.contains("\"prototype\"") || argStr.contains("\"request\"")
+							|| argStr.contains("SCOPE_REQUEST");
+				});
+			}
+			return false;
+		});
 	}
 
 	private String getSimpleAnnotationName(J.Annotation annotation) {
