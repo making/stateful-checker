@@ -274,6 +274,27 @@ public class ThreadScopeService {
         this.threadLocalState = state;  // OK: Thread scope allows state
     }
 }
+
+// @Autowired setter methods - OK
+@Service
+public class DependencyService {
+    private DatabaseService database;
+    private CacheService cache;
+    
+    @Autowired
+    public void setDatabase(DatabaseService database) {
+        this.database = database;  // OK: Dependency injection via setter
+    }
+    
+    @Autowired
+    public void setCache(CacheService cache) {
+        this.cache = cache;  // OK: Dependency injection via setter
+    }
+    
+    public void businessMethod(String data) {
+        this.database = null;  // ERROR: Field assignment outside setter
+    }
+}
 ```
 
 ## License

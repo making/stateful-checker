@@ -122,6 +122,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 - **Thread-safe collections** - Excludes java.util.concurrent collections from errors
 - **Configuration properties** - Excludes @ConfigurationProperties classes
 - **Initialization methods** - Permits field assignments in @PostConstruct and afterPropertiesSet methods
+- **@Autowired setters** - Permits field assignments in @Autowired setter methods for dependency injection
 - **Allowed scopes** - Permits prototype/request scoped beans by default, plus custom scopes via CLI
 - **Reporter pattern** - Extensible output format architecture using Supplier pattern
 - **ReportFormat enum** - Type-safe format selection with factory methods

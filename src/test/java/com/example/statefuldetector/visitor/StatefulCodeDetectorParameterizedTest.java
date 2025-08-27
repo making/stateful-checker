@@ -897,6 +897,50 @@ class StatefulCodeDetectorParameterizedTest {
 				Arguments.of("@Repository", "@Scope(scopeName = \"thread\")"));
 	}
 
+	@Test
+	void allowFieldAssignmentInAutowiredSetters() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Service;
+				import org.springframework.beans.factory.annotation.Autowired;
+
+				@Service
+				public class TestService {
+				    private String fieldWithAutowiredSetter;
+				    private String fieldWithoutAutowired;
+				    private String fieldWithAutowiredNonSetter;
+
+				    @Autowired
+				    public void setFieldWithAutowiredSetter(String value) {
+				        this.fieldWithAutowiredSetter = value; // Should be allowed
+				    }
+
+				    public void setFieldWithoutAutowired(String value) {
+				        this.fieldWithoutAutowired = value; // Should be detected as error
+				    }
+
+				    @Autowired
+				    public void configureFieldWithAutowiredNonSetter(String value) {
+				        this.fieldWithAutowiredNonSetter = value; // Should be detected as error (not a setter)
+				    }
+
+				    public void businessMethod(String data) {
+				        this.fieldWithAutowiredSetter = data; // Should be detected as error (not in setter)
+				    }
+				}
+				""";
+
+		List<StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Should detect 3 issues: non-autowired setter, autowired non-setter, business
+		// method assignment
+		assertThat(issues).hasSize(3);
+		assertThat(issues).extracting(StatefulIssue::fieldName)
+			.containsExactlyInAnyOrder("fieldWithoutAutowired", "fieldWithAutowiredNonSetter",
+					"fieldWithAutowiredSetter");
+	}
+
 	private List<StatefulIssue> detectIssues(String sourceCode) {
 		// Add stub class definitions
 		String stubClasses = """

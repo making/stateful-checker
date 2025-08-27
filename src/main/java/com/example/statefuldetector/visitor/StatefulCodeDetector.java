@@ -47,6 +47,8 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private boolean inPostConstruct = false;
 
+	private boolean inAutowiredSetter = false;
+
 	private boolean inStaticInitializer = false;
 
 	private String currentMethodName = "";
@@ -145,6 +147,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		// Check if this is a constructor
 		boolean wasInConstructor = inConstructor;
 		boolean wasInPostConstruct = inPostConstruct;
+		boolean wasInAutowiredSetter = inAutowiredSetter;
 
 		inConstructor = method.isConstructor();
 
@@ -156,6 +159,9 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 					|| "afterPropertiesSet".equals(method.getSimpleName());
 		}
 
+		// Check if this is an @Autowired setter method
+		inAutowiredSetter = hasAnnotation(method, "Autowired") && isSetterMethod(method);
+
 		J.MethodDeclaration result = super.visitMethodDeclaration(method, ctx);
 
 		// Only restore if this was the method that set the flag
@@ -165,6 +171,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		}
 
 		inConstructor = wasInConstructor;
+		inAutowiredSetter = wasInAutowiredSetter;
 		currentMethodName = previousMethodName;
 
 		return result;
@@ -205,7 +212,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 			if (isCollectionModificationMethod(methodName)) {
 				String fieldName = getFieldNameFromExpression(method.getSelect());
 				if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
-						&& !inPostConstruct && !inStaticInitializer && !isAllowedScope) {
+						&& !inPostConstruct && !inAutowiredSetter && !inStaticInitializer && !isAllowedScope) {
 
 					// Check if this is a thread-safe collection - skip if it is
 					String fieldType = fieldTypes.get(fieldName);
@@ -232,7 +239,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 				|| unary.getOperator() == J.Unary.Type.PreDecrement) {
 			String fieldName = getFieldNameFromExpression(unary.getExpression());
 			if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
-					&& !inPostConstruct && !inStaticInitializer && !isAllowedScope) {
+					&& !inPostConstruct && !inAutowiredSetter && !inStaticInitializer && !isAllowedScope) {
 				String operationType = (unary.getOperator() == J.Unary.Type.PostIncrement
 						|| unary.getOperator() == J.Unary.Type.PreIncrement) ? "Increment operation"
 								: "Decrement operation";
@@ -259,9 +266,9 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private void handleFieldAssignment(String fieldName) {
 		// Skip if field is final, injected, in an allowed context, in
-		// @ConfigurationProperties class, or in allowed scope
-		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inStaticInitializer
-				&& !isConfigurationPropertiesClass && !isAllowedScope) {
+		// @ConfigurationProperties class, in allowed scope, or in @Autowired setter
+		if (!isAllowedField(fieldName) && !inConstructor && !inPostConstruct && !inAutowiredSetter
+				&& !inStaticInitializer && !isConfigurationPropertiesClass && !isAllowedScope) {
 			recordIssue(fieldName, "Field assignment", "method " + currentMethodName);
 		}
 	}
@@ -385,6 +392,14 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 			return ((J.FieldAccess) annotation.getAnnotationType()).getSimpleName();
 		}
 		return "";
+	}
+
+	private boolean isSetterMethod(J.MethodDeclaration method) {
+		// Check if method name starts with "set" and has exactly one parameter
+		String methodName = method.getSimpleName();
+		return methodName.startsWith("set") && methodName.length() > 3 && Character.isUpperCase(methodName.charAt(3))
+				&& method.getParameters().size() == 1 && (method.getReturnTypeExpression() == null
+						|| "void".equals(method.getReturnTypeExpression().toString()));
 	}
 
 	private static class Issue {
