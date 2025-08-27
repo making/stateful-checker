@@ -42,6 +42,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 #   --workaround-mode=<MODE>      Apply workaround by adding scope annotations (apply|diff)
 #   --workaround-scope-name=<SCOPE> Scope name for workaround (default: prototype)
 #   --workaround-proxy-mode=<MODE> Proxy mode for workaround (default: TARGET_CLASS)
+#   --allowed-scope=<SCOPE>       Additional allowed scope (can be specified multiple times)
 ```
 
 ## Architecture
@@ -118,7 +119,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 ### Smart Detection Features
 - **Thread-safe collections** - Excludes java.util.concurrent collections from errors
 - **Configuration properties** - Excludes @ConfigurationProperties classes
-- **Allowed scopes** - Permits prototype/request scoped beans to have state
+- **Allowed scopes** - Permits prototype/request scoped beans by default, plus custom scopes via CLI
 - **CSV duplicate suppression** - Uses string concatenation for performance
 
 ### Scope Generation

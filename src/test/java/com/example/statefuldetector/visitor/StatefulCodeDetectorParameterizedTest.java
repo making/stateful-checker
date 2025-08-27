@@ -10,6 +10,7 @@ import org.openrewrite.java.tree.J;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -672,6 +673,57 @@ class StatefulCodeDetectorParameterizedTest {
 		);
 	}
 
+	@ParameterizedTest
+	@MethodSource("additionalAllowedScopeCombinations")
+	void allowStatefulCodeWithAdditionalAllowedScopes(String springAnnotation, String scopeAnnotation) {
+		// Test with additional allowed scopes like "thread"
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.%s;
+				import org.springframework.context.annotation.Scope;
+				import org.springframework.web.context.annotation.RequestScope;
+				import org.springframework.web.context.WebApplicationContext;
+				import java.util.ArrayList;
+				import java.util.List;
+
+				%s
+				%s
+				public class TestService {
+				    private String state;
+				    private int counter;
+				    private List<String> items = new ArrayList<>();
+
+				    public void setState(String state) {
+				        this.state = state;
+				    }
+
+				    public void increment() {
+				        counter++;
+				    }
+
+				    public void addItem(String item) {
+				        items.add(item);
+				    }
+				}
+				""".formatted(springAnnotation.replace("@", ""), springAnnotation, scopeAnnotation);
+
+		// Detect issues with thread scope as additional allowed scope
+		Set<String> additionalScopes = Set.of("thread");
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssuesWithAdditionalScopes(sourceCode,
+				additionalScopes);
+
+		// Additional allowed scope classes should not generate any errors
+		assertThat(issues).isEmpty();
+	}
+
+	private static Stream<Arguments> additionalAllowedScopeCombinations() {
+		// Thread scope variations
+		return Stream.of(Arguments.of("@Service", "@Scope(\"thread\")"),
+				Arguments.of("@Component", "@Scope(value = \"thread\")"),
+				Arguments.of("@Repository", "@Scope(scopeName = \"thread\")"));
+	}
+
 	private List<StatefulCodeDetector.StatefulIssue> detectIssues(String sourceCode) {
 		// Add stub class definitions
 		String stubClasses = """
@@ -693,6 +745,39 @@ class StatefulCodeDetectorParameterizedTest {
 
 		StatefulCodeDetector detector = new StatefulCodeDetector();
 		detector.visit(cu, new InMemoryExecutionContext());
+		return detector.getIssues();
+	}
+
+	private List<StatefulCodeDetector.StatefulIssue> detectIssuesWithAdditionalScopes(String sourceCode,
+			Set<String> additionalScopes) {
+		// Add stub class definitions
+		String stubClasses = """
+				package com.example;
+				public class OtherService {}
+				class UserRepository {}
+				class OrderService {}
+				""";
+
+		JavaParser.Builder<?, ?> parser = JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath());
+
+		List<J.CompilationUnit> cus = parser.build()
+			.parse(stubClasses, sourceCode)
+			.map(J.CompilationUnit.class::cast)
+			.toList();
+
+		StatefulCodeDetector detector = new StatefulCodeDetector();
+		detector.setAllowedScopes(additionalScopes);
+
+		// Find the test service class
+		J.CompilationUnit testServiceCu = cus.stream()
+			.filter(cu -> cu.getClasses().stream().anyMatch(clazz -> "TestService".equals(clazz.getSimpleName())))
+			.findFirst()
+			.orElse(null);
+
+		if (testServiceCu != null) {
+			detector.visit(testServiceCu, new InMemoryExecutionContext());
+		}
+
 		return detector.getIssues();
 	}
 

@@ -11,6 +11,7 @@ A Java CLI tool for detecting stateful code patterns in Spring Beans and EJB Sta
 - **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
 - Thread-safe collection detection (excludes `java.util.concurrent` collections)
 - Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
+- Support for custom allowed scopes via CLI (e.g., `thread` scope)
 - Standalone executable JAR
 
 ## Detected Patterns
@@ -89,6 +90,12 @@ java -jar target/stateful-detector.jar --workaround-mode=apply \
   --workaround-scope-name=request \
   --workaround-proxy-mode=INTERFACES \
   src/main/java
+
+# Allow additional custom scopes (e.g., thread scope)
+java -jar target/stateful-detector.jar --allowed-scope=thread src/main/java
+
+# Multiple allowed scopes
+java -jar target/stateful-detector.jar --allowed-scope=thread --allowed-scope=job src/main/java
 ```
 
 ### Command Line Options
@@ -97,6 +104,7 @@ java -jar target/stateful-detector.jar --workaround-mode=apply \
 Usage: stateful-detector [-hvV] [--csv] [--workaround-mode=<workaroundMode>]
                         [--workaround-proxy-mode=<workaroundProxyMode>]
                         [--workaround-scope-name=<workaroundScopeName>]
+                        [--allowed-scope=<additionalScopes>]...
                         <inputPath>
 
 Parameters:
@@ -112,6 +120,7 @@ Options:
                            Scope name for workaround (default: prototype)
   --workaround-proxy-mode=<MODE>   
                            Proxy mode for workaround (default: TARGET_CLASS)
+  --allowed-scope=<SCOPE>  Additional allowed scope (can be specified multiple times)
 ```
 
 ## Examples
@@ -208,6 +217,16 @@ public class PrototypeService {
     
     public void setState(String state) {
         this.state = state;  // OK: Prototype scope allows state
+    }
+}
+
+@Service
+@Scope("thread") 
+public class ThreadScopeService {
+    private String threadLocalState;
+    
+    public void setThreadLocalState(String state) {
+        this.threadLocalState = state;  // OK: Thread scope allows state
     }
 }
 ```

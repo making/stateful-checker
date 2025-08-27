@@ -49,8 +49,14 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private String currentMethodName = "";
 
+	private Set<String> additionalAllowedScopes;
+
 	public boolean hasStatefulIssues() {
 		return !statefulIssues.isEmpty();
+	}
+
+	public void setAllowedScopes(Set<String> allowedScopes) {
+		this.additionalAllowedScopes = allowedScopes;
 	}
 
 	public void reportIssues() {
@@ -343,8 +349,22 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 					// Handle @Scope("prototype"), @Scope(value = "prototype"),
 					// @Scope(scopeName = "prototype")
 					// Also handle WebApplicationContext.SCOPE_REQUEST constant
-					return argStr.contains("\"prototype\"") || argStr.contains("\"request\"")
-							|| argStr.contains("SCOPE_REQUEST");
+					// Check built-in allowed scopes
+					if (argStr.contains("\"prototype\"") || argStr.contains("\"request\"")
+							|| argStr.contains("SCOPE_REQUEST")) {
+						return true;
+					}
+
+					// Check additional allowed scopes
+					if (additionalAllowedScopes != null) {
+						for (String scope : additionalAllowedScopes) {
+							if (argStr.contains("\"" + scope + "\"")) {
+								return true;
+							}
+						}
+					}
+
+					return false;
 				});
 			}
 			return false;

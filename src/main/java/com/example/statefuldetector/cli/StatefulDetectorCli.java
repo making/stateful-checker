@@ -3,6 +3,7 @@ package com.example.statefuldetector.cli;
 import com.example.statefuldetector.processor.SingleFileProcessor;
 import com.example.statefuldetector.processor.WorkaroundMode;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -34,6 +35,9 @@ public class StatefulDetectorCli implements Callable<Integer> {
 	@Option(names = { "--workaround-proxy-mode" }, description = "Proxy mode for workaround (default: TARGET_CLASS)")
 	String workaroundProxyMode = "TARGET_CLASS";
 
+	@Option(names = { "--allowed-scope" }, description = "Additional allowed scope (can be specified multiple times)")
+	Set<String> allowedScopes;
+
 	@Override
 	public Integer call() throws Exception {
 		// Parse and validate workaround mode
@@ -55,6 +59,10 @@ public class StatefulDetectorCli implements Callable<Integer> {
 			processor.setWorkaroundMode(parsedWorkaroundMode);
 			processor.setWorkaroundScopeName(workaroundScopeName);
 			processor.setWorkaroundProxyMode(workaroundProxyMode);
+		}
+
+		if (allowedScopes != null && !allowedScopes.isEmpty()) {
+			processor.setAllowedScopes(allowedScopes);
 		}
 
 		try {

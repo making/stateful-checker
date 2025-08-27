@@ -38,6 +38,8 @@ public class SingleFileProcessor {
 
 	private String workaroundProxyMode = "TARGET_CLASS";
 
+	private Set<String> allowedScopes;
+
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
 		this.recipe = new StatefulCodeRecipe();
@@ -76,6 +78,14 @@ public class SingleFileProcessor {
 	}
 
 	/**
+	 * Set additional allowed scopes.
+	 * @param allowedScopes set of additional allowed scopes
+	 */
+	public void setAllowedScopes(Set<String> allowedScopes) {
+		this.allowedScopes = allowedScopes;
+	}
+
+	/**
 	 * Process a single Java file.
 	 * @param filePath the path to the Java file
 	 * @throws IOException if the file cannot be read
@@ -96,6 +106,9 @@ public class SingleFileProcessor {
 		for (SourceFile cu : compilationUnits) {
 			if (cu instanceof J.CompilationUnit compilationUnit) {
 				StatefulCodeDetector detector = new StatefulCodeDetector();
+				if (allowedScopes != null) {
+					detector.setAllowedScopes(allowedScopes);
+				}
 				detector.visit(compilationUnit, ctx);
 
 				if (detector.hasStatefulIssues()) {
