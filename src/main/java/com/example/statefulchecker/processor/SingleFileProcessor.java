@@ -232,6 +232,12 @@ public class SingleFileProcessor {
 		// Create a simple workaround by adding @Scope annotation
 		String transformed = addScopeAnnotation(original, compilationUnit);
 
+		// Check if any changes were made
+		if (original.equals(transformed)) {
+			// No changes made (e.g., EJB classes or already has @Scope)
+			return;
+		}
+
 		if (WorkaroundMode.APPLY.equals(workaroundMode)) {
 			// Write the transformed content back to file
 			Files.writeString(filePath, transformed);
@@ -257,6 +263,16 @@ public class SingleFileProcessor {
 		boolean hasExistingScope = source.contains("@Scope");
 		if (hasExistingScope) {
 			// If scope already exists, return original source unchanged
+			return source;
+		}
+
+		// Check if this is a Spring Bean class (not EJB)
+		boolean hasSpringBeanAnnotation = source.contains("@Component") || source.contains("@Service")
+				|| source.contains("@Repository") || source.contains("@Controller")
+				|| source.contains("@RestController");
+
+		if (!hasSpringBeanAnnotation) {
+			// EJB classes (@Stateless) are not supported for workaround
 			return source;
 		}
 

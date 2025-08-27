@@ -342,4 +342,68 @@ class WorkaroundFunctionalityTest {
 		assertThat(output).isEmpty();
 	}
 
+	@Test
+	void workaroundDoesNothingForEjbClasses() throws IOException {
+		String originalSource = """
+				package com.example;
+
+				import javax.ejb.Stateless;
+
+				@Stateless
+				public class EjbService {
+					private String state;
+
+					public void setState(String state) {
+						this.state = state;
+					}
+				}
+				""";
+
+		Files.writeString(testFile, originalSource);
+
+		processor.setWorkaroundMode(WorkaroundMode.APPLY);
+		processor.setWorkaroundScopeName("prototype");
+
+		processor.processFile(testFile);
+
+		String modifiedSource = Files.readString(testFile);
+
+		// Should remain unchanged for EJB classes
+		assertThat(modifiedSource).isEqualTo(originalSource);
+		assertThat(modifiedSource).doesNotContain("@Scope");
+		assertThat(modifiedSource).doesNotContain("import org.springframework.context.annotation.Scope");
+
+		String output = outputStream.toString();
+		// No output should be printed for EJB classes
+		assertThat(output).isEmpty();
+	}
+
+	@Test
+	void workaroundShowsNoDiffForEjbClasses() throws IOException {
+		String originalSource = """
+				package com.example;
+
+				import jakarta.ejb.Stateless;
+
+				@Stateless
+				public class JakartaEjbService {
+					private int counter;
+
+					public void increment() {
+						counter++;
+					}
+				}
+				""";
+
+		Files.writeString(testFile, originalSource);
+
+		processor.setWorkaroundMode(WorkaroundMode.DIFF);
+
+		processor.processFile(testFile);
+
+		String output = outputStream.toString();
+		// No diff should be shown for EJB classes even with stateful issues
+		assertThat(output).isEmpty();
+	}
+
 }
