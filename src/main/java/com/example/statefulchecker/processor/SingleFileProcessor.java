@@ -3,7 +3,9 @@ package com.example.statefulchecker.processor;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.openrewrite.ExecutionContext;
@@ -28,6 +30,8 @@ public class SingleFileProcessor {
 	private boolean csvOutput = false;
 
 	private boolean csvHeaderPrinted = false;
+
+	private final Set<String> printedRecords = new HashSet<>();
 
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
@@ -55,6 +59,8 @@ public class SingleFileProcessor {
 		String source = Files.readString(filePath);
 		ExecutionContext ctx = new InMemoryExecutionContext();
 
+		// Reset the parser to avoid conflicts with previously parsed files
+		javaParser.reset();
 		List<? extends SourceFile> compilationUnits = javaParser.parse(ctx, source).toList();
 
 		boolean foundIssues = false;
@@ -123,9 +129,15 @@ public class SingleFileProcessor {
 			String method = extractMethodFromMessage(issue.message());
 			String issueType = extractIssueTypeFromMessage(issue.message());
 
-			// Escape CSV values and output
-			System.out.printf("%s,%s,%s,%s,%s%n", escapeCsv(filePath.toString()), escapeCsv(issue.fieldName()),
-					escapeCsv(issueType), escapeCsv(issue.level().toString()), escapeCsv(method));
+			// Create unique key for duplicate checking
+			String uniqueKey = filePath.toString() + "|" + issue.fieldName() + "|" + issueType + "|" + issue.level();
+
+			// Only output if not already printed
+			if (printedRecords.add(uniqueKey)) {
+				// Escape CSV values and output
+				System.out.printf("%s,%s,%s,%s,%s%n", escapeCsv(filePath.toString()), escapeCsv(issue.fieldName()),
+						escapeCsv(issueType), escapeCsv(issue.level().toString()), escapeCsv(method));
+			}
 		}
 	}
 
