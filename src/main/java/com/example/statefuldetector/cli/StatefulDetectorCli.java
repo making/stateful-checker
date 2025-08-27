@@ -1,5 +1,6 @@
 package com.example.statefuldetector.cli;
 
+import com.example.statefuldetector.ExitCodes;
 import com.example.statefuldetector.report.ReportFormat;
 import com.example.statefuldetector.processor.SingleFileProcessor;
 import com.example.statefuldetector.processor.WorkaroundMode;
@@ -39,6 +40,9 @@ public class StatefulDetectorCli implements Callable<Integer> {
 	@Option(names = { "--allowed-scope" }, description = "Additional allowed scope (can be specified multiple times)")
 	Set<String> allowedScopes;
 
+	@Option(names = { "--fail-on-detection" }, description = "Exit with code 65 when stateful issues are detected")
+	boolean failOnDetection;
+
 	@Override
 	public Integer call() throws Exception {
 		// Parse and validate workaround mode
@@ -49,7 +53,7 @@ public class StatefulDetectorCli implements Callable<Integer> {
 			}
 			catch (IllegalArgumentException e) {
 				System.err.println("Error: " + e.getMessage());
-				return 1;
+				return ExitCodes.ERROR;
 			}
 		}
 
@@ -60,11 +64,12 @@ public class StatefulDetectorCli implements Callable<Integer> {
 		}
 		catch (IllegalArgumentException e) {
 			System.err.println("Error: " + e.getMessage());
-			return 1;
+			return ExitCodes.ERROR;
 		}
 
 		SingleFileProcessor processor = new SingleFileProcessor();
 		processor.setReportFormat(parsedReportFormat);
+		processor.setFailOnDetection(failOnDetection);
 
 		if (parsedWorkaroundMode != null) {
 			processor.setWorkaroundMode(parsedWorkaroundMode);
@@ -77,19 +82,20 @@ public class StatefulDetectorCli implements Callable<Integer> {
 		}
 
 		try {
+			int exitCode;
 			if (inputPath.toFile().isFile()) {
 				// Process single file
-				processor.processFile(inputPath);
+				exitCode = processor.processFile(inputPath);
 			}
 			else if (inputPath.toFile().isDirectory()) {
 				// Process directory
-				processor.processDirectory(inputPath);
+				exitCode = processor.processDirectory(inputPath);
 			}
 			else {
 				System.err.println("Error: Input path does not exist: " + inputPath);
-				return 1;
+				return ExitCodes.ERROR;
 			}
-			return 0;
+			return exitCode;
 		}
 		catch (Exception e) {
 			if (verbose) {
@@ -98,7 +104,7 @@ public class StatefulDetectorCli implements Callable<Integer> {
 			else {
 				System.err.println("Error: " + e.getMessage());
 			}
-			return 1;
+			return ExitCodes.ERROR;
 		}
 	}
 

@@ -1,5 +1,6 @@
 package com.example.statefuldetector.processor;
 
+import com.example.statefuldetector.ExitCodes;
 import com.example.statefuldetector.report.ReportFormat;
 import com.example.statefuldetector.report.StatefulIssueReporter;
 import com.example.statefuldetector.util.DiffFormatter;
@@ -32,6 +33,8 @@ public class SingleFileProcessor {
 	private String workaroundProxyMode = "TARGET_CLASS";
 
 	private Set<String> allowedScopes;
+
+	private boolean failOnDetection = false;
 
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
@@ -87,18 +90,28 @@ public class SingleFileProcessor {
 	}
 
 	/**
+	 * Set whether to fail when stateful issues are detected.
+	 * @param failOnDetection true to fail on detection, false otherwise
+	 */
+	public void setFailOnDetection(boolean failOnDetection) {
+		this.failOnDetection = failOnDetection;
+	}
+
+	/**
 	 * Process a single Java file.
 	 * @param filePath the path to the Java file
+	 * @return exit code (0 for success, 64 if failOnDetection is true and issues found)
 	 * @throws IOException if the file cannot be read
 	 */
-	public void processFile(Path filePath) throws IOException {
+	public int processFile(Path filePath) throws IOException {
 		if (!filePath.toString().endsWith(".java")) {
-			return;
+			return ExitCodes.SUCCESS;
 		}
 
 		// Initialize reporter for single file processing
 		reporter.initialize();
 
+		boolean hasIssues = false;
 		try {
 			String source = Files.readString(filePath);
 			ExecutionContext ctx = new InMemoryExecutionContext();
@@ -116,6 +129,7 @@ public class SingleFileProcessor {
 					detector.visit(compilationUnit, ctx);
 
 					if (detector.hasStatefulIssues()) {
+						hasIssues = true;
 						if (workaroundMode != null) {
 							// Apply workaround by adding scope annotation
 							applyWorkaround(filePath, compilationUnit, ctx);
@@ -132,31 +146,82 @@ public class SingleFileProcessor {
 			// Finish reporter for single file processing
 			reporter.finish();
 		}
+
+		return (failOnDetection && hasIssues) ? ExitCodes.STATEFUL_ISSUES_DETECTED : ExitCodes.SUCCESS;
 	}
 
 	/**
 	 * Process all Java files in a directory recursively.
 	 * @param directory the directory to process
+	 * @return exit code (0 for success, 64 if failOnDetection is true and issues found)
 	 * @throws IOException if the directory cannot be read
 	 */
-	public void processDirectory(Path directory) throws IOException {
+	public int processDirectory(Path directory) throws IOException {
 		// Initialize reporter
 		reporter.initialize();
 
+		boolean hasIssuesInDirectory = false;
 		try (Stream<Path> paths = Files.walk(directory)) {
-			paths.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).forEach(path -> {
+			for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".java")).toList()) {
 				try {
-					processFile(path);
+					int result = processSingleFileInDirectory(path);
+					if (result == ExitCodes.STATEFUL_ISSUES_DETECTED) {
+						hasIssuesInDirectory = true;
+					}
 				}
 				catch (IOException e) {
 					System.err.println("Error processing file " + path + ": " + e.getMessage());
 				}
-			});
+			}
 		}
 		finally {
 			// Finish reporter
 			reporter.finish();
 		}
+
+		return (failOnDetection && hasIssuesInDirectory) ? ExitCodes.STATEFUL_ISSUES_DETECTED : ExitCodes.SUCCESS;
+	}
+
+	/**
+	 * Process a single file within directory processing (without reporter lifecycle).
+	 * @param filePath the path to the Java file
+	 * @return exit code (0 for success, 64 if issues found)
+	 * @throws IOException if the file cannot be read
+	 */
+	private int processSingleFileInDirectory(Path filePath) throws IOException {
+		if (!filePath.toString().endsWith(".java")) {
+			return ExitCodes.SUCCESS;
+		}
+
+		String source = Files.readString(filePath);
+		ExecutionContext ctx = new InMemoryExecutionContext();
+
+		// Reset the parser to avoid conflicts with previously parsed files
+		javaParser.reset();
+		List<? extends SourceFile> compilationUnits = javaParser.parse(ctx, source).toList();
+
+		for (SourceFile cu : compilationUnits) {
+			if (cu instanceof J.CompilationUnit compilationUnit) {
+				StatefulCodeDetector detector = new StatefulCodeDetector();
+				if (allowedScopes != null) {
+					detector.setAllowedScopes(allowedScopes);
+				}
+				detector.visit(compilationUnit, ctx);
+
+				if (detector.hasStatefulIssues()) {
+					if (workaroundMode != null) {
+						// Apply workaround by adding scope annotation
+						applyWorkaround(filePath, compilationUnit, ctx);
+					}
+					else {
+						// Use reporter for output
+						reporter.reportIssues(filePath, detector.getIssues());
+					}
+					return ExitCodes.STATEFUL_ISSUES_DETECTED;
+				}
+			}
+		}
+		return ExitCodes.SUCCESS;
 	}
 
 	/**

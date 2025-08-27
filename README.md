@@ -8,6 +8,7 @@ A Java CLI tool for detecting stateful code patterns in Spring Beans and EJB Sta
 - Supports both `javax` and `jakarta` package namespaces
 - Single file and directory batch processing
 - Flexible output formats (default human-readable, CSV) for different use cases
+- **Exit code support** - Return code 65 when issues detected with `--fail-on-detection` for CI/CD integration
 - **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
 - Thread-safe collection detection (excludes `java.util.concurrent` collections)
 - Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
@@ -102,6 +103,28 @@ java -jar target/stateful-detector.jar --allowed-scope=thread src/main/java
 java -jar target/stateful-detector.jar --allowed-scope=thread --allowed-scope=job src/main/java
 ```
 
+### CI/CD Integration
+
+For continuous integration and build pipelines:
+
+```bash
+# Exit with non-zero code (65) when stateful issues are detected
+java -jar target/stateful-detector.jar --fail-on-detection src/main/java
+
+# Use with Maven build
+java -jar target/stateful-detector.jar --fail-on-detection src/main/java || exit $?
+
+# Example GitHub Actions step
+- name: Check for stateful code
+  run: |
+    java -jar target/stateful-detector.jar --fail-on-detection src/main/java
+```
+
+**Exit Codes:**
+- `0` - Success (no errors, or issues found but `--fail-on-detection` not used)
+- `1` - General error (invalid arguments, file not found, etc.)
+- `65` - Stateful issues detected when `--fail-on-detection` flag is used
+
 ### Command Line Options
 
 ```
@@ -120,6 +143,7 @@ Options:
   -V, --version            Print version information and exit
   --report-format=<FORMAT> Report output format (default|csv)
   -v, --verbose            Enable verbose output
+  --fail-on-detection      Exit with code 65 when stateful issues are detected
   --workaround-mode=<MODE> Apply workaround by adding scope annotations (apply|diff)
   --workaround-scope-name=<SCOPE> 
                            Scope name for workaround (default: prototype)

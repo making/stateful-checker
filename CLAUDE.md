@@ -11,6 +11,7 @@ repository.
 - Detect stateful code patterns in Spring and EJB components
 - Single file and directory batch processing
 - Flexible output formats (default human-readable, CSV) with Reporter pattern architecture
+- **Exit code support** - Return code 65 when issues detected with `--fail-on-detection` for CI/CD integration
 - **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
 - Thread-safe collection detection (excludes `java.util.concurrent` collections)
 - Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
@@ -39,6 +40,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 #   -V, --version                 Show version
 #   --report-format=<FORMAT>      Report output format (default|csv)
 #   -v, --verbose                 Enable verbose output
+#   --fail-on-detection           Exit with code 65 when stateful issues are detected
 #   --workaround-mode=<MODE>      Apply workaround by adding scope annotations (apply|diff)
 #   --workaround-scope-name=<SCOPE> Scope name for workaround (default: prototype)
 #   --workaround-proxy-mode=<MODE> Proxy mode for workaround (default: TARGET_CLASS)
@@ -48,7 +50,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 ## Architecture
 
 ### Package Structure
-- `com.example.statefuldetector` - Main package (contains StatefulIssue, IssueLevel)
+- `com.example.statefuldetector` - Main package (contains StatefulIssue, IssueLevel, ExitCodes)
 - `com.example.statefuldetector.cli` - CLI interface
 - `com.example.statefuldetector.processor` - Core processing logic
 - `com.example.statefuldetector.visitor` - AST visitors
@@ -124,6 +126,12 @@ java -jar target/stateful-detector.jar [options] <input-path>
 - **Reporter pattern** - Extensible output format architecture using Supplier pattern
 - **ReportFormat enum** - Type-safe format selection with factory methods
 - **CSV duplicate suppression** - Uses string concatenation for performance
+
+### Exit Code Support
+- **ExitCodes class** - Standard Unix exit codes (SUCCESS=0, ERROR=1, STATEFUL_ISSUES_DETECTED=65)
+- **CI/CD Integration** - `--fail-on-detection` flag enables non-zero exit when issues found
+- **Unix Convention** - Uses exit code 65 (EX_DATAERR) for data format errors
+- **Return Value Architecture** - `processFile` and `processDirectory` methods return exit codes
 
 ### Scope Generation
 - Uses `scopeName` attribute (not `value`)
