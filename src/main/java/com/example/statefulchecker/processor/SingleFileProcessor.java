@@ -1,5 +1,7 @@
 package com.example.statefulchecker.processor;
 
+import com.example.statefulchecker.recipe.StatefulCodeRecipe;
+import com.example.statefulchecker.visitor.StatefulCodeDetector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -7,16 +9,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
-
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.InMemoryExecutionContext;
-import org.openrewrite.Result;
 import org.openrewrite.SourceFile;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
-
-import com.example.statefulchecker.recipe.StatefulCodeRecipe;
-import com.example.statefulchecker.visitor.StatefulCodeDetector;
 
 /**
  * Processor for checking stateful code in single Java files.
@@ -65,8 +62,7 @@ public class SingleFileProcessor {
 
 		boolean foundIssues = false;
 		for (SourceFile cu : compilationUnits) {
-			if (cu instanceof J.CompilationUnit) {
-				J.CompilationUnit compilationUnit = (J.CompilationUnit) cu;
+			if (cu instanceof J.CompilationUnit compilationUnit) {
 				StatefulCodeDetector detector = new StatefulCodeDetector();
 				detector.visit(compilationUnit, ctx);
 

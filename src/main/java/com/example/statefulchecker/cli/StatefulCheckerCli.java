@@ -1,10 +1,8 @@
 package com.example.statefulchecker.cli;
 
+import com.example.statefulchecker.processor.SingleFileProcessor;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
-
-import com.example.statefulchecker.processor.SingleFileProcessor;
-
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -18,13 +16,13 @@ import picocli.CommandLine.Parameters;
 public class StatefulCheckerCli implements Callable<Integer> {
 
 	@Parameters(index = "0", description = "Input file or directory to check")
-	private Path inputPath;
+	Path inputPath;
 
 	@Option(names = { "-v", "--verbose" }, description = "Enable verbose output")
-	private boolean verbose;
+	boolean verbose;
 
 	@Option(names = { "--csv" }, description = "Output results in CSV format")
-	private boolean csvOutput;
+	boolean csvOutput;
 
 	@Override
 	public Integer call() throws Exception {
