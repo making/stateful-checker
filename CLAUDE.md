@@ -53,7 +53,6 @@ java -jar target/stateful-detector.jar [options] <input-path>
 - `com.example.statefuldetector.processor` - Core processing logic
 - `com.example.statefuldetector.visitor` - AST visitors
 - `com.example.statefuldetector.util` - Utility classes
-- `com.example.statefuldetector.recipe` - OpenRewrite recipes
 - `com.example.statefuldetector.report` - Reporter implementations and formats
 
 ### Key Technologies

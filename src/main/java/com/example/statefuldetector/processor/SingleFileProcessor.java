@@ -1,6 +1,5 @@
 package com.example.statefuldetector.processor;
 
-import com.example.statefuldetector.recipe.StatefulCodeRecipe;
 import com.example.statefuldetector.report.ReportFormat;
 import com.example.statefuldetector.report.StatefulIssueReporter;
 import com.example.statefuldetector.util.DiffFormatter;
@@ -24,8 +23,6 @@ public class SingleFileProcessor {
 
 	private final JavaParser javaParser;
 
-	private final StatefulCodeRecipe recipe;
-
 	private StatefulIssueReporter reporter;
 
 	private WorkaroundMode workaroundMode;
@@ -38,7 +35,6 @@ public class SingleFileProcessor {
 
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
-		this.recipe = new StatefulCodeRecipe();
 		this.reporter = ReportFormat.DEFAULT.createReporter(); // Default reporter
 	}
 
