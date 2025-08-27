@@ -428,6 +428,93 @@ class StatefulCodeDetectorParameterizedTest {
 		assertThat(issues).isEmpty();
 	}
 
+	@ParameterizedTest
+	@MethodSource("threadSafeCollectionCombinations")
+	void allowThreadSafeCollectionModifications(String springAnnotation, String collectionType, String methodCall) {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.%s;
+				import java.util.concurrent.*;
+				import java.util.*;
+
+				%s
+				public class TestService {
+				    private %s collection = new %s();
+
+				    public void modifyCollection() {
+				        %s; // Should NOT be flagged as error for thread-safe collections
+				    }
+				}
+				""".formatted(springAnnotation.replace("@", ""), springAnnotation, collectionType,
+				getConstructorCall(collectionType), methodCall);
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Thread-safe collections should not generate errors
+		assertThat(issues).isEmpty();
+	}
+
+	@ParameterizedTest
+	@MethodSource("nonThreadSafeCollectionCombinations")
+	void detectNonThreadSafeCollectionModifications(String springAnnotation, String collectionType, String methodCall) {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.%s;
+				import java.util.*;
+
+				%s
+				public class TestService {
+				    private %s collection = new %s();
+
+				    public void modifyCollection() {
+				        %s; // Should be flagged as error for non-thread-safe collections
+				    }
+				}
+				""".formatted(springAnnotation.replace("@", ""), springAnnotation, collectionType,
+				getConstructorCall(collectionType), methodCall);
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Non-thread-safe collections should generate errors
+		assertThat(issues).hasSize(1);
+		assertThat(issues.get(0).message()).contains("Collection modification");
+	}
+
+	private static Stream<Arguments> threadSafeCollectionCombinations() {
+		return Stream.of(
+				Arguments.of("@Service", "ConcurrentHashMap<String, String>", "collection.put(\"key\", \"value\")"),
+				Arguments.of("@Component", "ConcurrentLinkedQueue<String>", "collection.add(\"item\")"),
+				Arguments.of("@Service", "CopyOnWriteArrayList<String>", "collection.add(\"item\")"),
+				Arguments.of("@Repository", "CopyOnWriteArraySet<String>", "collection.add(\"item\")"),
+				Arguments.of("@Controller", "LinkedBlockingQueue<String>", "collection.add(\"item\")"),
+				Arguments.of("@RestController", "ConcurrentSkipListMap<String, String>",
+						"collection.put(\"key\", \"value\")"),
+				Arguments.of("@Service", "ConcurrentSkipListSet<String>", "collection.add(\"item\")"),
+				Arguments.of("@Component", "ArrayBlockingQueue<String>", "collection.add(\"item\")"),
+				Arguments.of("@Service", "PriorityBlockingQueue<String>", "collection.add(\"item\")"));
+	}
+
+	private static Stream<Arguments> nonThreadSafeCollectionCombinations() {
+		return Stream.of(Arguments.of("@Service", "HashMap<String, String>", "collection.put(\"key\", \"value\")"),
+				Arguments.of("@Component", "ArrayList<String>", "collection.add(\"item\")"),
+				Arguments.of("@Service", "LinkedList<String>", "collection.add(\"item\")"),
+				Arguments.of("@Repository", "HashSet<String>", "collection.add(\"item\")"),
+				Arguments.of("@Controller", "TreeMap<String, String>", "collection.put(\"key\", \"value\")"),
+				Arguments.of("@RestController", "TreeSet<String>", "collection.add(\"item\")"));
+	}
+
+	private String getConstructorCall(String collectionType) {
+		if (collectionType.contains("ArrayBlockingQueue")) {
+			return "ArrayBlockingQueue<>(10)";
+		}
+		if (collectionType.contains("<")) {
+			return collectionType.substring(0, collectionType.indexOf('<')) + "<>()";
+		}
+		return collectionType + "()";
+	}
+
 	private List<StatefulCodeDetector.StatefulIssue> detectIssues(String sourceCode) {
 		// Add stub class definitions
 		String stubClasses = """

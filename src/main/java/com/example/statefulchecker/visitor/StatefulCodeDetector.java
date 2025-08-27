@@ -33,6 +33,8 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 	private final Set<String> declaredFields = new HashSet<>();
 
+	private final Map<String, String> fieldTypes = new HashMap<>();
+
 	private final Map<String, List<Issue>> statefulIssues = new HashMap<>();
 
 	private boolean inConstructor = false;
@@ -96,6 +98,12 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 			for (J.VariableDeclarations.NamedVariable variable : multiVariable.getVariables()) {
 				String fieldName = variable.getSimpleName();
 				declaredFields.add(fieldName);
+
+				// Store field type information
+				if (multiVariable.getTypeExpression() != null) {
+					String typeStr = multiVariable.getTypeExpression().toString();
+					fieldTypes.put(fieldName, typeStr);
+				}
 
 				// Check modifiers
 				boolean isFinal = multiVariable.hasModifier(J.Modifier.Type.Final);
@@ -180,8 +188,13 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 				String fieldName = getFieldNameFromExpression(method.getSelect());
 				if (fieldName != null && isInstanceField(fieldName) && !isAllowedField(fieldName) && !inConstructor
 						&& !inPostConstruct && !inStaticInitializer) {
-					recordIssue(fieldName, "Collection modification '" + methodName + "'",
-							"method " + currentMethodName);
+
+					// Check if this is a thread-safe collection - skip if it is
+					String fieldType = fieldTypes.get(fieldName);
+					if (!isThreadSafeCollection(fieldType)) {
+						recordIssue(fieldName, "Collection modification '" + methodName + "'",
+								"method " + currentMethodName);
+					}
 				}
 			}
 		}
@@ -244,6 +257,21 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 	private boolean isCollectionModificationMethod(String methodName) {
 		return Set.of("add", "remove", "addAll", "removeAll", "clear", "put", "putAll", "removeIf")
 			.contains(methodName);
+	}
+
+	private boolean isThreadSafeCollection(String typeStr) {
+		if (typeStr == null) {
+			return false;
+		}
+
+		// Check for thread-safe collection types from java.util.concurrent
+		return typeStr.contains("ConcurrentHashMap") || typeStr.contains("ConcurrentLinkedQueue")
+				|| typeStr.contains("ConcurrentLinkedDeque") || typeStr.contains("ConcurrentSkipListMap")
+				|| typeStr.contains("ConcurrentSkipListSet") || typeStr.contains("CopyOnWriteArrayList")
+				|| typeStr.contains("CopyOnWriteArraySet") || typeStr.contains("LinkedBlockingQueue")
+				|| typeStr.contains("LinkedBlockingDeque") || typeStr.contains("ArrayBlockingQueue")
+				|| typeStr.contains("PriorityBlockingQueue") || typeStr.contains("SynchronousQueue")
+				|| typeStr.contains("DelayQueue") || typeStr.contains("LinkedTransferQueue");
 	}
 
 	private String getFieldNameFromExpression(J expression) {
