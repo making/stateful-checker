@@ -2,6 +2,7 @@ package com.example.statefulchecker.cli;
 
 import com.example.migration.cli.Version;
 import com.example.statefulchecker.processor.SingleFileProcessor;
+import com.example.statefulchecker.processor.WorkaroundMode;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
@@ -25,10 +26,37 @@ public class StatefulCheckerCli implements Callable<Integer> {
 	@Option(names = { "--csv" }, description = "Output results in CSV format")
 	boolean csvOutput;
 
+	@Option(names = { "--workaround-mode" }, description = "Apply workaround by adding scope annotations (apply|diff)")
+	String workaroundMode;
+
+	@Option(names = { "--workaround-scope-name" }, description = "Scope name for workaround (default: prototype)")
+	String workaroundScopeName = "prototype";
+
+	@Option(names = { "--workaround-proxy-mode" }, description = "Proxy mode for workaround (default: TARGET_CLASS)")
+	String workaroundProxyMode = "TARGET_CLASS";
+
 	@Override
 	public Integer call() throws Exception {
+		// Parse and validate workaround mode
+		WorkaroundMode parsedWorkaroundMode = null;
+		if (workaroundMode != null) {
+			try {
+				parsedWorkaroundMode = WorkaroundMode.fromString(workaroundMode);
+			}
+			catch (IllegalArgumentException e) {
+				System.err.println("Error: " + e.getMessage());
+				return 1;
+			}
+		}
+
 		SingleFileProcessor processor = new SingleFileProcessor();
 		processor.setCsvOutput(csvOutput);
+
+		if (parsedWorkaroundMode != null) {
+			processor.setWorkaroundMode(parsedWorkaroundMode);
+			processor.setWorkaroundScopeName(workaroundScopeName);
+			processor.setWorkaroundProxyMode(workaroundProxyMode);
+		}
 
 		try {
 			if (inputPath.toFile().isFile()) {

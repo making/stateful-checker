@@ -10,7 +10,10 @@ repository.
 **Key Features:**
 - Detect stateful code patterns in Spring and EJB components
 - Single file and directory batch processing
-- CSV output support for spreadsheet integration
+- CSV output support for spreadsheet integration with duplicate suppression
+- **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
+- Thread-safe collection detection (excludes `java.util.concurrent` collections)
+- Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
 - Cross-platform support (Windows/Unix) with Jimfs testing
 - Standalone executable JAR with all dependencies
 
@@ -32,10 +35,13 @@ mvn clean package
 java -jar target/stateful-checker.jar [options] <input-path>
 
 # Options:
-#   -h, --help        Show help
-#   -V, --version     Show version
-#   --csv             Output results in CSV format
-#   -v, --verbose     Enable verbose output
+#   -h, --help                    Show help
+#   -V, --version                 Show version
+#   --csv                         Output results in CSV format
+#   -v, --verbose                 Enable verbose output
+#   --workaround-mode=<MODE>      Apply workaround by adding scope annotations (apply|diff)
+#   --workaround-scope-name=<SCOPE> Scope name for workaround (default: prototype)
+#   --workaround-proxy-mode=<MODE> Proxy mode for workaround (default: TARGET_CLASS)
 ```
 
 ## Architecture
@@ -43,16 +49,18 @@ java -jar target/stateful-checker.jar [options] <input-path>
 ### Package Structure
 - `com.example.statefulchecker` - Main package
 - `com.example.statefulchecker.cli` - CLI interface
-- `com.example.statefulchecker.processor` - Core processing logic (SingleFileProcessor)
-- `com.example.statefulchecker.recipe` - OpenRewrite recipes
+- `com.example.statefulchecker.processor` - Core processing logic
 - `com.example.statefulchecker.visitor` - AST visitors
 - `com.example.statefulchecker.util` - Utility classes
+- `com.example.statefulchecker.recipe` - OpenRewrite recipes
 
 ### Key Technologies
 - **OpenRewrite** - AST manipulation framework (Apache 2.0 licensed components only)
 - **Picocli** - CLI framework
-- **JUnit 5** - Testing framework
+- **JUnit 5** - Testing framework (127 tests total)
+- **AssertJ** - Fluent assertions
 - **Jimfs 1.3.1** - In-memory file system for cross-platform testing
+- **java-diff-utils** - Myers algorithm-based unified diffs
 - **Maven Shade Plugin** - Fat JAR creation
 
 
@@ -98,12 +106,33 @@ java -jar target/stateful-checker.jar [options] <input-path>
 - **Single File Support**: No compilation context required
 - **Import Management**: Manual import addition/removal via maybeAddImport/maybeRemoveImport
 
+## Key Implementation Details
+
+### Workaround Functionality
+- **WorkaroundMode enum** - Type-safe mode management (APPLY, DIFF)
+- **String-based transformation** - Simple regex-based annotation insertion
+- **Unified diff generation** - Myers algorithm via java-diff-utils
+- **Import management** - Automatic addition of Spring scope imports
+- **Scope exclusions** - Skips files with existing @Scope annotations
+
+### Smart Detection Features
+- **Thread-safe collections** - Excludes java.util.concurrent collections from errors
+- **Configuration properties** - Excludes @ConfigurationProperties classes
+- **Allowed scopes** - Permits prototype/request scoped beans to have state
+- **CSV duplicate suppression** - Uses string concatenation for performance
+
+### Scope Generation
+- Uses `scopeName` attribute (not `value`)
+- Defaults to `prototype` scope with `TARGET_CLASS` proxy mode  
+- Supports custom scope names and proxy modes
+- Generates: `@Scope(scopeName = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)`
+
 ## After Task Completion
 
 - Ensure all code is formatted using `mvn spring-javaformat:apply`
-- Run full test suite with `mvn test`
+- Run full test suite with `mvn test` (must pass all 127 tests)
 - Verify executable JAR creation with `mvn clean package`
-- Test CLI functionality with sample files
+- Test CLI functionality with sample files including workaround modes
 - For every task, notify completion with:
 
 ```bash

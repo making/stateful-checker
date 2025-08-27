@@ -8,6 +8,9 @@ A Java CLI tool for detecting stateful code patterns in Spring Beans and EJB Sta
 - Supports both `javax` and `jakarta` package namespaces
 - Single file and directory batch processing
 - CSV output for spreadsheet integration
+- **Automatic workaround generation** - Add `@Scope` annotations to fix stateful beans
+- Thread-safe collection detection (excludes `java.util.concurrent` collections)
+- Smart exclusions for `@ConfigurationProperties` and allowed scopes (`prototype`, `request`)
 - Standalone executable JAR
 
 ## Detected Patterns
@@ -70,10 +73,31 @@ CSV columns:
 - **Level** - Severity level (ERROR/WARNING)
 - **Method** - Method where the issue was found
 
+### Workaround Mode
+
+Automatically fix stateful Spring Beans by adding `@Scope` annotations:
+
+```bash
+# Show diff of proposed changes without modifying files
+java -jar target/stateful-checker.jar --workaround-mode=diff src/main/java
+
+# Apply changes directly to files
+java -jar target/stateful-checker.jar --workaround-mode=apply src/main/java
+
+# Use custom scope and proxy mode
+java -jar target/stateful-checker.jar --workaround-mode=apply \
+  --workaround-scope-name=request \
+  --workaround-proxy-mode=INTERFACES \
+  src/main/java
+```
+
 ### Command Line Options
 
 ```
-Usage: stateful-checker [-hV] [--csv] [-v] <inputPath>
+Usage: stateful-checker [-hvV] [--csv] [--workaround-mode=<workaroundMode>]
+                        [--workaround-proxy-mode=<workaroundProxyMode>]
+                        [--workaround-scope-name=<workaroundScopeName>]
+                        <inputPath>
 
 Parameters:
   <inputPath>              Input file or directory to check
@@ -83,6 +107,11 @@ Options:
   -V, --version            Print version information and exit
   --csv                    Output results in CSV format
   -v, --verbose            Enable verbose output
+  --workaround-mode=<MODE> Apply workaround by adding scope annotations (apply|diff)
+  --workaround-scope-name=<SCOPE> 
+                           Scope name for workaround (default: prototype)
+  --workaround-proxy-mode=<MODE>   
+                           Proxy mode for workaround (default: TARGET_CLASS)
 ```
 
 ## Examples
@@ -122,6 +151,65 @@ Stateful code detected in: src/main/java/com/example/UserService.java
 File,Field,Issue,Level,Method
 src/main/java/com/example/UserService.java,lastUser,Field assignment,ERROR,processUser
 src/main/java/com/example/UserService.java,cache,Collection modification,ERROR,processUser
+```
+
+### Example Workaround Output
+
+When using `--workaround-mode=apply`, the tool automatically adds `@Scope` annotations:
+
+```java
+// Before
+@Service
+public class UserService {
+    private String lastUser;
+    // ...
+}
+
+// After
+@Service
+@Scope(scopeName = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
+public class UserService {
+    private String lastUser;
+    // ...
+}
+```
+
+### What's Excluded (No Errors)
+
+The tool intelligently excludes certain patterns:
+
+```java
+// Thread-safe collections - OK
+@Service
+public class CacheService {
+    private ConcurrentHashMap<String, Object> cache = new ConcurrentHashMap<>();
+    
+    public void put(String key, Object value) {
+        cache.put(key, value);  // OK: Thread-safe collection
+    }
+}
+
+// Configuration properties - OK
+@Component
+@ConfigurationProperties(prefix = "app")
+public class AppConfig {
+    private String name;
+    
+    public void setName(String name) {
+        this.name = name;  // OK: Configuration binding
+    }
+}
+
+// Allowed scopes - OK
+@Service
+@Scope("prototype")
+public class PrototypeService {
+    private String state;
+    
+    public void setState(String state) {
+        this.state = state;  // OK: Prototype scope allows state
+    }
+}
 ```
 
 ## License

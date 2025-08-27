@@ -15,6 +15,8 @@ import org.openrewrite.SourceFile;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.tree.J;
 
+import com.example.statefulchecker.util.DiffFormatter;
+
 /**
  * Processor for checking stateful code in single Java files.
  */
@@ -30,6 +32,12 @@ public class SingleFileProcessor {
 
 	private final Set<String> printedRecords = new HashSet<>();
 
+	private WorkaroundMode workaroundMode;
+
+	private String workaroundScopeName = "prototype";
+
+	private String workaroundProxyMode = "TARGET_CLASS";
+
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
 		this.recipe = new StatefulCodeRecipe();
@@ -41,6 +49,30 @@ public class SingleFileProcessor {
 	 */
 	public void setCsvOutput(boolean csvOutput) {
 		this.csvOutput = csvOutput;
+	}
+
+	/**
+	 * Set workaround mode.
+	 * @param workaroundMode the workaround mode
+	 */
+	public void setWorkaroundMode(WorkaroundMode workaroundMode) {
+		this.workaroundMode = workaroundMode;
+	}
+
+	/**
+	 * Set workaround scope name.
+	 * @param workaroundScopeName scope name (default: prototype)
+	 */
+	public void setWorkaroundScopeName(String workaroundScopeName) {
+		this.workaroundScopeName = workaroundScopeName;
+	}
+
+	/**
+	 * Set workaround proxy mode.
+	 * @param workaroundProxyMode proxy mode (default: TARGET_CLASS)
+	 */
+	public void setWorkaroundProxyMode(String workaroundProxyMode) {
+		this.workaroundProxyMode = workaroundProxyMode;
 	}
 
 	/**
@@ -67,7 +99,11 @@ public class SingleFileProcessor {
 				detector.visit(compilationUnit, ctx);
 
 				if (detector.hasStatefulIssues()) {
-					if (csvOutput) {
+					if (workaroundMode != null) {
+						// Apply workaround by adding scope annotation
+						applyWorkaround(filePath, compilationUnit, ctx);
+					}
+					else if (csvOutput) {
 						outputCsvResults(filePath, detector);
 					}
 					else {
@@ -180,6 +216,89 @@ public class SingleFileProcessor {
 			return "\"" + value.replace("\"", "\"\"") + "\"";
 		}
 		return value;
+	}
+
+	/**
+	 * Apply workaround by adding scope annotation to stateful classes.
+	 * @param filePath the file path
+	 * @param compilationUnit the compilation unit
+	 * @param ctx execution context
+	 * @throws IOException if file operations fail
+	 */
+	private void applyWorkaround(Path filePath, J.CompilationUnit compilationUnit, ExecutionContext ctx)
+			throws IOException {
+		String original = Files.readString(filePath);
+
+		// Create a simple workaround by adding @Scope annotation
+		String transformed = addScopeAnnotation(original, compilationUnit);
+
+		if (WorkaroundMode.APPLY.equals(workaroundMode)) {
+			// Write the transformed content back to file
+			Files.writeString(filePath, transformed);
+			System.out.println("Applied workaround to: " + filePath);
+		}
+		else if (WorkaroundMode.DIFF.equals(workaroundMode)) {
+			// Show diff
+			String diff = DiffFormatter.generateUnifiedDiff(original, transformed, filePath);
+			if (!diff.isEmpty()) {
+				System.out.print(diff);
+			}
+		}
+	}
+
+	/**
+	 * Add scope annotation to the class in the source code.
+	 * @param source the original source code
+	 * @param compilationUnit the compilation unit
+	 * @return the transformed source code
+	 */
+	private String addScopeAnnotation(String source, J.CompilationUnit compilationUnit) {
+		// Check if any class already has @Scope annotation
+		boolean hasExistingScope = source.contains("@Scope");
+		if (hasExistingScope) {
+			// If scope already exists, return original source unchanged
+			return source;
+		}
+
+		// Find the class declaration and add @Scope annotation
+		String[] lines = source.split("\n");
+		StringBuilder result = new StringBuilder();
+		boolean importsAdded = false;
+		boolean scopeAnnotationAdded = false;
+
+		for (int i = 0; i < lines.length; i++) {
+			String line = lines[i];
+
+			// Add imports after package declaration
+			if (!importsAdded && line.trim().startsWith("import ")) {
+				if (i == 0 || !lines[i - 1].trim().startsWith("import")) {
+					// First import line - add our imports before
+					result.append("import org.springframework.context.annotation.Scope;\n");
+					result.append("import org.springframework.context.annotation.ScopedProxyMode;\n");
+					importsAdded = true;
+				}
+			}
+
+			// Add @Scope annotation before class declaration with Spring Bean annotations
+			if (!scopeAnnotationAdded && (line.trim().startsWith("@Component") || line.trim().startsWith("@Service")
+					|| line.trim().startsWith("@Repository") || line.trim().startsWith("@Controller")
+					|| line.trim().startsWith("@RestController"))) {
+				result.append(line).append("\n");
+				String indentation = line.substring(0, line.length() - line.trim().length());
+				result.append(indentation)
+					.append("@Scope(scopeName = \"")
+					.append(workaroundScopeName)
+					.append("\", proxyMode = ScopedProxyMode.")
+					.append(workaroundProxyMode)
+					.append(")\n");
+				scopeAnnotationAdded = true;
+				continue;
+			}
+
+			result.append(line).append("\n");
+		}
+
+		return result.toString();
 	}
 
 }
