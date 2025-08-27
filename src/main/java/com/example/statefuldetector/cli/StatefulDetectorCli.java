@@ -1,6 +1,5 @@
 package com.example.statefuldetector.cli;
 
-import com.example.migration.cli.Version;
 import com.example.statefuldetector.processor.SingleFileProcessor;
 import com.example.statefuldetector.processor.WorkaroundMode;
 import java.nio.file.Path;

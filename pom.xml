@@ -106,9 +106,9 @@
 						<configuration>
 							<skip>${version-generate-skip}</skip>
 							<target>
-								<echo file="${project.build.directory}/generated-sources/java/com/example/migration/cli/Version.java">
+								<echo file="${project.build.directory}/generated-sources/java/com/example/statefuldetector/cli/Version.java">
 									<![CDATA[
-package com.example.migration.cli;
+package com.example.statefuldetector.cli;
 
 public class Version {
 
