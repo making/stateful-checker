@@ -188,6 +188,22 @@ public class UserService {
 The tool intelligently excludes certain patterns:
 
 ```java
+// Initialization methods - OK
+@Service
+public class InitService {
+    private Map<String, String> config;
+    
+    @PostConstruct
+    public void init() {
+        this.config = new HashMap<>();  // OK: Field initialization in @PostConstruct
+    }
+    
+    @Override
+    public void afterPropertiesSet() {
+        this.config = new HashMap<>();  // OK: Field initialization in afterPropertiesSet
+    }
+}
+
 // Thread-safe collections - OK
 @Service
 public class CacheService {

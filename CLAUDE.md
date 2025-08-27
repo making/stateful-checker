@@ -119,6 +119,7 @@ java -jar target/stateful-detector.jar [options] <input-path>
 ### Smart Detection Features
 - **Thread-safe collections** - Excludes java.util.concurrent collections from errors
 - **Configuration properties** - Excludes @ConfigurationProperties classes
+- **Initialization methods** - Permits field assignments in @PostConstruct and afterPropertiesSet methods
 - **Allowed scopes** - Permits prototype/request scoped beans by default, plus custom scopes via CLI
 - **CSV duplicate suppression** - Uses string concatenation for performance
 

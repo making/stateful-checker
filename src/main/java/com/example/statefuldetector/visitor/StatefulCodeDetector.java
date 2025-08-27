@@ -153,7 +153,7 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		boolean wasInPostConstruct = inPostConstruct;
 
 		inConstructor = method.isConstructor();
-		inPostConstruct = hasAnnotation(method, "PostConstruct");
+		inPostConstruct = hasAnnotation(method, "PostConstruct") || "afterPropertiesSet".equals(method.getSimpleName());
 
 		J.MethodDeclaration result = super.visitMethodDeclaration(method, ctx);
 

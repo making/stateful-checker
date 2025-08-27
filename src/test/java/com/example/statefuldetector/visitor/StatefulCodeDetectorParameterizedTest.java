@@ -536,6 +536,90 @@ class StatefulCodeDetectorParameterizedTest {
 		assertThat(issues).isEmpty();
 	}
 
+	@ParameterizedTest
+	@MethodSource("postConstructPackages")
+	void allowFieldAssignmentInPostConstructMethod(String postConstructPackage) {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Service;
+				import %s.PostConstruct;
+				import java.util.ArrayList;
+				import java.util.List;
+
+				@Service
+				public class InitializationService {
+				    private String config;
+				    private List<String> cache;
+				    private int maxRetries;
+
+				    @PostConstruct
+				    public void init() {
+				        this.config = "default-config"; // Should be allowed in @PostConstruct
+				        this.cache = new ArrayList<>(); // Should be allowed in @PostConstruct
+				        this.maxRetries = 3; // Should be allowed in @PostConstruct
+				    }
+
+				    public void updateConfig(String newConfig) {
+				        this.config = newConfig; // Should be flagged - not in @PostConstruct
+				    }
+				}
+				""".formatted(postConstructPackage);
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Only updateConfig method assignment should be flagged
+		assertThat(issues).hasSize(1);
+		assertThat(issues.get(0).fieldName()).isEqualTo("config");
+		assertThat(issues.get(0).message()).contains("Field assignment");
+		assertThat(issues.get(0).message()).contains("updateConfig");
+	}
+
+	private static Stream<Arguments> postConstructPackages() {
+		return Stream.of(Arguments.of("javax.annotation"), Arguments.of("jakarta.annotation"));
+	}
+
+	@Test
+	void allowFieldAssignmentInAfterPropertiesSetMethod() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Component;
+				import org.springframework.beans.factory.InitializingBean;
+				import java.util.HashMap;
+				import java.util.Map;
+
+				@Component
+				public class InitializingComponent implements InitializingBean {
+				    private Map<String, Object> cache;
+				    private String serviceName;
+
+				    @Override
+				    public void afterPropertiesSet() {
+				        this.cache = new HashMap<>(); // Should be allowed in afterPropertiesSet
+				        this.serviceName = "MyService"; // Should be allowed in afterPropertiesSet
+				    }
+
+				    public void updateCache(String key, Object value) {
+				        cache.put(key, value); // Should be flagged - collection modification
+				    }
+
+				    public void changeServiceName(String name) {
+				        this.serviceName = name; // Should be flagged - field assignment
+				    }
+				}
+				""";
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// updateCache and changeServiceName should be flagged
+		assertThat(issues).hasSize(2);
+		assertThat(issues).anyMatch(
+				issue -> issue.fieldName().equals("cache") && issue.message().contains("Collection modification"));
+		assertThat(issues)
+			.anyMatch(issue -> issue.fieldName().equals("serviceName") && issue.message().contains("Field assignment"));
+	}
+
 	@Test
 	void detectFieldAssignmentInRegularComponentClass() {
 		String sourceCode = """
