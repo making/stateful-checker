@@ -1,6 +1,9 @@
 package com.example.statefuldetector.processor;
 
 import com.example.statefuldetector.recipe.StatefulCodeRecipe;
+import com.example.statefuldetector.report.ConsoleReporter;
+import com.example.statefuldetector.report.CsvReporter;
+import com.example.statefuldetector.report.StatefulIssueReporter;
 import com.example.statefuldetector.visitor.StatefulCodeDetector;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,11 +29,7 @@ public class SingleFileProcessor {
 
 	private final StatefulCodeRecipe recipe;
 
-	private boolean csvOutput = false;
-
-	private boolean csvHeaderPrinted = false;
-
-	private final Set<String> printedRecords = new HashSet<>();
+	private StatefulIssueReporter reporter;
 
 	private WorkaroundMode workaroundMode;
 
@@ -43,6 +42,7 @@ public class SingleFileProcessor {
 	public SingleFileProcessor() {
 		this.javaParser = JavaParser.fromJavaVersion().build();
 		this.recipe = new StatefulCodeRecipe();
+		this.reporter = new ConsoleReporter(); // Default reporter
 	}
 
 	/**
@@ -50,7 +50,15 @@ public class SingleFileProcessor {
 	 * @param csvOutput true to enable CSV output, false for normal output
 	 */
 	public void setCsvOutput(boolean csvOutput) {
-		this.csvOutput = csvOutput;
+		this.reporter = csvOutput ? new CsvReporter() : new ConsoleReporter();
+	}
+
+	/**
+	 * Set a custom reporter for output.
+	 * @param reporter the reporter to use
+	 */
+	public void setReporter(StatefulIssueReporter reporter) {
+		this.reporter = reporter;
 	}
 
 	/**
@@ -95,39 +103,41 @@ public class SingleFileProcessor {
 			return;
 		}
 
-		String source = Files.readString(filePath);
-		ExecutionContext ctx = new InMemoryExecutionContext();
+		// Initialize reporter for single file processing
+		reporter.initialize();
 
-		// Reset the parser to avoid conflicts with previously parsed files
-		javaParser.reset();
-		List<? extends SourceFile> compilationUnits = javaParser.parse(ctx, source).toList();
+		try {
+			String source = Files.readString(filePath);
+			ExecutionContext ctx = new InMemoryExecutionContext();
 
-		boolean foundIssues = false;
-		for (SourceFile cu : compilationUnits) {
-			if (cu instanceof J.CompilationUnit compilationUnit) {
-				StatefulCodeDetector detector = new StatefulCodeDetector();
-				if (allowedScopes != null) {
-					detector.setAllowedScopes(allowedScopes);
-				}
-				detector.visit(compilationUnit, ctx);
+			// Reset the parser to avoid conflicts with previously parsed files
+			javaParser.reset();
+			List<? extends SourceFile> compilationUnits = javaParser.parse(ctx, source).toList();
 
-				if (detector.hasStatefulIssues()) {
-					if (workaroundMode != null) {
-						// Apply workaround by adding scope annotation
-						applyWorkaround(filePath, compilationUnit, ctx);
+			for (SourceFile cu : compilationUnits) {
+				if (cu instanceof J.CompilationUnit compilationUnit) {
+					StatefulCodeDetector detector = new StatefulCodeDetector();
+					if (allowedScopes != null) {
+						detector.setAllowedScopes(allowedScopes);
 					}
-					else if (csvOutput) {
-						outputCsvResults(filePath, detector);
-					}
-					else {
-						if (!foundIssues) {
-							System.out.println("\nStateful code detected in: " + filePath);
-							foundIssues = true;
+					detector.visit(compilationUnit, ctx);
+
+					if (detector.hasStatefulIssues()) {
+						if (workaroundMode != null) {
+							// Apply workaround by adding scope annotation
+							applyWorkaround(filePath, compilationUnit, ctx);
 						}
-						detector.reportIssues();
+						else {
+							// Use reporter for output
+							reporter.reportIssues(filePath, detector.getIssues());
+						}
 					}
 				}
 			}
+		}
+		finally {
+			// Finish reporter for single file processing
+			reporter.finish();
 		}
 	}
 
@@ -137,6 +147,9 @@ public class SingleFileProcessor {
 	 * @throws IOException if the directory cannot be read
 	 */
 	public void processDirectory(Path directory) throws IOException {
+		// Initialize reporter
+		reporter.initialize();
+
 		try (Stream<Path> paths = Files.walk(directory)) {
 			paths.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).forEach(path -> {
 				try {
@@ -147,88 +160,10 @@ public class SingleFileProcessor {
 				}
 			});
 		}
-	}
-
-	/**
-	 * Print CSV header if not already printed.
-	 */
-	private void printCsvHeader() {
-		if (!csvHeaderPrinted) {
-			System.out.println("File,Field,Issue,Level,Method");
-			csvHeaderPrinted = true;
+		finally {
+			// Finish reporter
+			reporter.finish();
 		}
-	}
-
-	/**
-	 * Output detection results in CSV format.
-	 * @param filePath the path of the file being processed
-	 * @param detector the detector with results
-	 */
-	private void outputCsvResults(Path filePath, StatefulCodeDetector detector) {
-		printCsvHeader();
-
-		List<StatefulCodeDetector.StatefulIssue> issues = detector.getIssues();
-		for (StatefulCodeDetector.StatefulIssue issue : issues) {
-			// Parse method from message like "Field assignment to 'state' in method
-			// process"
-			String method = extractMethodFromMessage(issue.message());
-			String issueType = extractIssueTypeFromMessage(issue.message());
-
-			// Create unique key for duplicate checking
-			String uniqueKey = filePath.toString() + "|" + issue.fieldName() + "|" + issueType + "|" + issue.level();
-
-			// Only output if not already printed
-			if (printedRecords.add(uniqueKey)) {
-				// Escape CSV values and output
-				System.out.printf("%s,%s,%s,%s,%s%n", escapeCsv(filePath.toString()), escapeCsv(issue.fieldName()),
-						escapeCsv(issueType), escapeCsv(issue.level().toString()), escapeCsv(method));
-			}
-		}
-	}
-
-	/**
-	 * Extract method name from issue message.
-	 */
-	private String extractMethodFromMessage(String message) {
-		// Extract method name from patterns like "... in method methodName"
-		int methodIndex = message.lastIndexOf(" in method ");
-		if (methodIndex != -1) {
-			return message.substring(methodIndex + 11); // " in method ".length() = 11
-		}
-		return "";
-	}
-
-	/**
-	 * Extract issue type from message.
-	 */
-	private String extractIssueTypeFromMessage(String message) {
-		// Extract the issue type from the beginning of the message
-		if (message.startsWith("Field assignment")) {
-			return "Field assignment";
-		}
-		else if (message.startsWith("Collection modification")) {
-			return "Collection modification";
-		}
-		else if (message.startsWith("Increment operation")) {
-			return "Increment operation";
-		}
-		else if (message.startsWith("Decrement operation")) {
-			return "Decrement operation";
-		}
-		return message.split(" ")[0]; // fallback to first word
-	}
-
-	/**
-	 * Escape CSV values by quoting them if they contain commas, quotes, or newlines.
-	 */
-	private String escapeCsv(String value) {
-		if (value == null) {
-			return "";
-		}
-		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-			return "\"" + value.replace("\"", "\"\"") + "\"";
-		}
-		return value;
 	}
 
 	/**

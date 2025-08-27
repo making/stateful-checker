@@ -59,18 +59,6 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 		this.additionalAllowedScopes = allowedScopes;
 	}
 
-	public void reportIssues() {
-		for (Map.Entry<String, List<Issue>> entry : statefulIssues.entrySet()) {
-			String fieldName = entry.getKey();
-			List<Issue> issues = entry.getValue();
-
-			System.out.println("  Field: " + fieldName);
-			for (Issue issue : issues) {
-				System.out.println("    - " + issue.description + " in " + issue.location);
-			}
-		}
-	}
-
 	@Override
 	public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
 		// Check if class has bean annotations
