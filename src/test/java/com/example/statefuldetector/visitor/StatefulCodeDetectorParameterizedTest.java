@@ -580,6 +580,96 @@ class StatefulCodeDetectorParameterizedTest {
 	}
 
 	@Test
+	void allowFieldAssignmentInPostConstructWithAnonymousClass() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Service;
+				import jakarta.annotation.PostConstruct;
+				import org.springframework.transaction.PlatformTransactionManager;
+				import org.springframework.transaction.TransactionStatus;
+				import org.springframework.transaction.support.TransactionCallbackWithoutResult;
+				import org.springframework.transaction.support.TransactionTemplate;
+
+				@Service
+				public class TransactionalInitService {
+				    private final PlatformTransactionManager transactionManager;
+				    private String config;
+				    private Object resource;
+
+				    public TransactionalInitService(PlatformTransactionManager transactionManager) {
+				        this.transactionManager = transactionManager;
+				    }
+
+				    @PostConstruct
+				    public void init() {
+				        TransactionTemplate template = new TransactionTemplate(transactionManager);
+				        template.execute(new TransactionCallbackWithoutResult() {
+				            @Override
+				            protected void doInTransactionWithoutResult(TransactionStatus status) {
+				                // These assignments should be allowed in anonymous class within @PostConstruct
+				                config = "initialized";
+				                resource = new Object();
+				            }
+				        });
+				    }
+
+				    public void updateConfig(String newConfig) {
+				        this.config = newConfig; // Should be flagged - not in @PostConstruct
+				    }
+				}
+				""";
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Only updateConfig method assignment should be flagged
+		assertThat(issues).hasSize(1);
+		assertThat(issues.get(0).fieldName()).isEqualTo("config");
+		assertThat(issues.get(0).message()).contains("Field assignment");
+		assertThat(issues.get(0).message()).contains("updateConfig");
+	}
+
+	@Test
+	void allowFieldAssignmentInPostConstructWithLambda() {
+		String sourceCode = """
+				package com.example;
+
+				import org.springframework.stereotype.Service;
+				import jakarta.annotation.PostConstruct;
+				import java.util.function.Supplier;
+
+				@Service
+				public class LambdaInitService {
+				    private String state;
+				    private int counter;
+
+				    @PostConstruct
+				    public void init() {
+				        Supplier<Void> initializer = () -> {
+				            // These assignments should be allowed in lambda within @PostConstruct
+				            this.state = "initialized";
+				            this.counter = 0;
+				            return null;
+				        };
+				        initializer.get();
+				    }
+
+				    public void updateState(String newState) {
+				        this.state = newState; // Should be flagged - not in @PostConstruct
+				    }
+				}
+				""";
+
+		List<StatefulCodeDetector.StatefulIssue> issues = detectIssues(sourceCode);
+
+		// Only updateState method assignment should be flagged
+		assertThat(issues).hasSize(1);
+		assertThat(issues.get(0).fieldName()).isEqualTo("state");
+		assertThat(issues.get(0).message()).contains("Field assignment");
+		assertThat(issues.get(0).message()).contains("updateState");
+	}
+
+	@Test
 	void allowFieldAssignmentInAfterPropertiesSetMethod() {
 		String sourceCode = """
 				package com.example;

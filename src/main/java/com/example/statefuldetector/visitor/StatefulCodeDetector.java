@@ -146,19 +146,35 @@ public class StatefulCodeDetector extends JavaIsoVisitor<ExecutionContext> {
 
 		// Track current method
 		String previousMethodName = currentMethodName;
-		currentMethodName = method.getSimpleName();
+		// Don't update method name if we're in PostConstruct context (for anonymous
+		// classes)
+		if (!inPostConstruct) {
+			currentMethodName = method.getSimpleName();
+		}
 
 		// Check if this is a constructor
 		boolean wasInConstructor = inConstructor;
 		boolean wasInPostConstruct = inPostConstruct;
 
 		inConstructor = method.isConstructor();
-		inPostConstruct = hasAnnotation(method, "PostConstruct") || "afterPropertiesSet".equals(method.getSimpleName());
+
+		// Check if this is a @PostConstruct method or afterPropertiesSet
+		// Don't override if we're already in a PostConstruct context (for anonymous
+		// classes)
+		if (!inPostConstruct) {
+			inPostConstruct = hasAnnotation(method, "PostConstruct")
+					|| "afterPropertiesSet".equals(method.getSimpleName());
+		}
 
 		J.MethodDeclaration result = super.visitMethodDeclaration(method, ctx);
 
+		// Only restore if this was the method that set the flag
+		if ((hasAnnotation(method, "PostConstruct") || "afterPropertiesSet".equals(method.getSimpleName()))
+				&& !wasInPostConstruct) {
+			inPostConstruct = wasInPostConstruct;
+		}
+
 		inConstructor = wasInConstructor;
-		inPostConstruct = wasInPostConstruct;
 		currentMethodName = previousMethodName;
 
 		return result;
