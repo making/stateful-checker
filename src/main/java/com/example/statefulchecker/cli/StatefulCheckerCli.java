@@ -1,5 +1,6 @@
 package com.example.statefulchecker.cli;
 
+import com.example.migration.cli.Version;
 import com.example.statefulchecker.processor.SingleFileProcessor;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
@@ -11,7 +12,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Command-line interface for the Stateful Checker tool.
  */
-@Command(name = "stateful-checker", mixinStandardHelpOptions = true, version = "1.0.0",
+@Command(name = "stateful-checker", mixinStandardHelpOptions = true, version = Version.VERSION_AS_JSON,
 		description = "Checks for stateful code in EJB 3 (Stateless Session Bean) and Spring Beans")
 public class StatefulCheckerCli implements Callable<Integer> {
 

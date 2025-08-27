@@ -87,6 +87,60 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>gen-build-info</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<skip>${version-generate-skip}</skip>
+							<target>
+								<echo file="${project.build.directory}/generated-sources/java/com/example/migration/cli/Version.java">
+									<![CDATA[
+package com.example.migration.cli;
+
+public class Version {
+
+	public static final String VERSION = "${project.version}";
+
+	public static final String BUILD = "${maven.build.timestamp}";
+
+	public static final String VERSION_AS_JSON = "{\"version\": \"${project.version}\", \"build\": \"${maven.build.timestamp}\"}";
+
+}
+]]></echo>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>test</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>${project.build.directory}/generated-sources/java
+								</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<!-- Spring Java Format -->
 			<plugin>
 				<groupId>io.spring.javaformat</groupId>
